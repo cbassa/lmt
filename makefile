@@ -13,8 +13,8 @@ reader: reader.o dada.o
 integrator: integrator.o
 	$(CC) -o integrator integrator.o $(LFLAGS)
 
-channelizer: channelizer.o
-	$(CC) -o channelizer channelizer.o $(LFLAGS)
+channelizer: channelizer.o dada.o
+	$(CC) -o channelizer channelizer.o dada.o $(LFLAGS)
 
 clean:
 	rm -f *.o
