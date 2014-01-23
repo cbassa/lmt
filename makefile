@@ -1,4 +1,5 @@
 # Compiling flags
+
 CFLAGS = -O3
 
 # Linking flags
