@@ -1,4 +1,4 @@
-#include "dada.h"
+#include "timeseries.h"
 
 #define HEADERSIZE 4096
 
@@ -103,10 +103,10 @@ int read_timestamp(char *keyword,char *buffer)
 }
 
 // Read DADA header
-struct dada_header read_dada_header(FILE *file)
+struct timeseries read_dada_header(FILE *file)
 {
   char header[HEADERSIZE];
-  struct dada_header s;
+  struct timeseries s;
   int bytes_read;
 
   // Read 4096 bytes containing the header
