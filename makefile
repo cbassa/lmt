@@ -7,6 +7,9 @@ LFLAGS = -lm -lfftw3f
 # Compiler
 CC = gcc
 
+all: 
+	make reader channelizer integrator
+
 reader: reader.o dada.o
 	$(CC) -o reader reader.o dada.o $(LFLAGS)
 
