@@ -4,7 +4,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <stdint.h>
-#include "dada.h"
+#include "timeseries.h"
 
 #define LIM 256
 
@@ -14,7 +14,7 @@ int main(int argc,char *argv[])
   FILE *infile,*outfile;
   char infname[LIM],outfname[LIM];
   char *buffer;
-  struct dada_header hdr;
+  struct timeseries hdr;
   unsigned int bytes_read,blocksize=64000;
 
   // Decode options
@@ -61,23 +61,19 @@ int main(int argc,char *argv[])
   hdr=read_dada_header(infile);
 
   // Write header struct
-  fwrite(&hdr,sizeof(struct dada_header),1,outfile);
+  fwrite(&hdr,1,sizeof(struct timeseries),outfile);
 
   // Allocate buffer
   buffer=(char *) malloc(sizeof(char)*blocksize);
 
   // Iterate over file
-  for (;;) {
+  do {
     // Read buffer
     bytes_read=fread(buffer,sizeof(char),blocksize,infile);
 
     // Write buffer
     fwrite(buffer,sizeof(char),bytes_read,outfile);
-
-    // End if no bytes are read
-    if (bytes_read==0)
-      break;
-  }
+  } while (bytes_read!=0);
 
   // Close output file
   fclose(outfile);
@@ -87,7 +83,6 @@ int main(int argc,char *argv[])
 
   // Free buffer
   free(buffer);
-
 
   return 0;
 }
