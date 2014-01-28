@@ -55,7 +55,7 @@ int main(int argc,char *argv[])
   }
 
   // Open output file
-  outfile=fopen(outfname,"w");
+  outfile=fopen(outfname,"wb");
   
   // Check if output file exists
   if (outfile==NULL) {
@@ -117,9 +117,13 @@ int main(int argc,char *argv[])
   fwrite(&fb,1,sizeof(struct filterbank),outfile);
 
   // Loop over contents
-  do {
+  for (;;) {
     // Read buffer
-    bytes_read=fread(buffer,1,4*nchan,infile);
+    bytes_read=fread(buffer,sizeof(char),4*nchan,infile);
+
+    // Exit when buffer is empty
+    if (bytes_read==0)
+      break;
 
     // Repack character buffer into FFTW buffers
     if (ts.ndim==1) {
@@ -159,7 +163,7 @@ int main(int argc,char *argv[])
     // Write
     fwrite(rp1,sizeof(fftwf_complex),nchan,outfile);
     fwrite(rp2,sizeof(fftwf_complex),nchan,outfile);
-  } while (bytes_read!=0);
+  } 
 
   // Close
   fclose(infile);

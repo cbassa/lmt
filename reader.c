@@ -67,13 +67,17 @@ int main(int argc,char *argv[])
   buffer=(char *) malloc(sizeof(char)*blocksize);
 
   // Iterate over file
-  do {
+  for (;;) {
     // Read buffer
     bytes_read=fread(buffer,sizeof(char),blocksize,infile);
 
+    // Exit when buffer is empty
+    if (bytes_read==0)
+      break;
+
     // Write buffer
     fwrite(buffer,sizeof(char),bytes_read,outfile);
-  } while (bytes_read!=0);
+  } 
 
   // Close output file
   fclose(outfile);

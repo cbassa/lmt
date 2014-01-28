@@ -8,7 +8,10 @@ LFLAGS = -lm -lfftw3f
 CC = gcc
 
 all: 
-	make reader channelizer integrator
+	make reader channelizer integrator filwriter
+
+filwriter: filwriter.o dada.o
+	$(CC) -o filwriter filwriter.o dada.o $(LFLAGS)
 
 reader: reader.o dada.o
 	$(CC) -o reader reader.o dada.o $(LFLAGS)
