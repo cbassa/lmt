@@ -80,7 +80,7 @@ int main(int argc,char *argv[])
   send_string(outfile,"HEADER_START");
   send_string(outfile,"source_name");
   send_string(outfile,fb.source);
-  send_int(outfile,"telescope_id",1);
+  send_int(outfile,"telescope_id",0);
   send_int(outfile,"machine_id",1);
   send_int(outfile,"data_type",1);
   send_double(outfile,"src_raj",0.0);
