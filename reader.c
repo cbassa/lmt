@@ -63,6 +63,10 @@ int main(int argc,char *argv[])
   // Write header struct
   fwrite(&hdr,1,sizeof(struct timeseries),outfile);
 
+  // Print information
+  printf("Reader: %s with %s at %s\n",hdr.source,hdr.instrument,hdr.telescope);
+  printf("Reader: %s timeseries, %g us sampling, %d polarizations, %d bits\n",(hdr.ndim==1 ? "real" : "complex"),hdr.tsamp*1e6,hdr.npol,hdr.nbit);
+  printf("Reader: %g MHz bandwidth at %g MHz center frequency\n",hdr.bw,hdr.freq);
   // Allocate buffer
   buffer=(char *) malloc(sizeof(char)*blocksize);
 

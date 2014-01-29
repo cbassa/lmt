@@ -22,6 +22,7 @@ int main(int argc,char *argv[])
   fftwf_complex *rp1,*rp2,*cp1,*cp2;
   fftwf_plan ftp1,ftp2;
   unsigned int bytes_read,nchan=128;
+  double offset;
 
   // Decode options
   while ((arg=getopt(argc,argv,"i:o:n:"))!=-1) {
@@ -67,9 +68,10 @@ int main(int argc,char *argv[])
   bytes_read=fread(&ts,1,sizeof(struct timeseries),infile);
 
   // Copy timeseries struct information to filterbank struct
-  fb.mjd_start=ts.mjd_start;
-  fb.intmjd=ts.intmjd;
-  fb.intsec=ts.intsec;
+  offset=(double) ts.obs_offset/(double) ts.bytes_per_second;
+  fb.mjd_start=ts.mjd_start+offset/86400.0;
+  //  fb.intmjd=ts.intmjd;
+  //  fb.intsec=ts.intsec;
   strcpy(fb.source,ts.source);
   strcpy(fb.telescope,ts.telescope);
   strcpy(fb.instrument,ts.instrument);
@@ -109,6 +111,9 @@ int main(int argc,char *argv[])
     // Update sampling time
     fb.tsamp=ts.tsamp*nchan;
   }
+
+  // Print information
+  printf("Channelizer: %d channels, %g MHz per channel, %g us sampling\n",fb.nchan,fb.fsamp,fb.tsamp*1e6);
 
   // Allocate character buffer
   buffer=(char *) malloc(sizeof(char)*4*nchan);

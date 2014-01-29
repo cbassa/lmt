@@ -78,6 +78,10 @@ int main(int argc,char *argv[])
   fbout.fsamp=fbin.fsamp; // Channelsize
   fbout.tsamp=fbin.tsamp*nsub; // Updated sample size
 
+  // Print information
+  printf("Integrator: integrating %d spectra, %g us sampling\n",nsub,fbout.tsamp*1e6);
+  printf("Integrator: converting to %d polarizations, %d bit\n",fbout.npol,fbout.nbit);
+
   // Write header struct
   fwrite(&fbout,1,sizeof(struct filterbank),outfile);
 
