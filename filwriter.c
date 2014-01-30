@@ -16,12 +16,13 @@ void send_float(FILE *,char *,float);
 int main(int argc,char *argv[])
 {
   int arg=0;
+  int i,j;
   FILE *infile,*outfile;
   char infname[LIM],outfname[LIM];
   struct filterbank fb;
   int bytes_read;
   double fch1,fchan;
-  float *ap;
+  float *apin,*apout;
 
   // Decode options
   while ((arg=getopt(argc,argv,"i:o:"))!=-1) {
@@ -97,19 +98,28 @@ int main(int argc,char *argv[])
   send_string(outfile,"HEADER_END");
 
   // Allocate
-  ap=(float *) malloc(sizeof(float)*fb.nchan);
+  apin=(float *) malloc(sizeof(float)*fb.nchan);
+  apout=(float *) malloc(sizeof(float)*fb.nchan);
 
   // Loop over file
   for (;;) {
     // Read buffer
-    bytes_read=fread(ap,sizeof(float),fb.nchan,infile);
+    bytes_read=fread(apin,sizeof(float),fb.nchan,infile);
 
     // Exit when buffer is emtpy
     if (bytes_read==0)
       break;
 
-    // Write
-    fwrite(ap,sizeof(float),fb.nchan,outfile);
+    // Flip array if bandwidth is positive (Sigproc has negative BW by definition)
+    if (fb.bw>0.0) {
+      for (i=0;i<fb.nchan;i++) 
+	apout[i]=apin[fb.nchan-i-1];
+      // Write
+      fwrite(apout,sizeof(float),fb.nchan,outfile);
+    } else {
+      // Write
+      fwrite(apin,sizeof(float),fb.nchan,outfile);
+    }
   }
 
   // Close output file
@@ -119,7 +129,8 @@ int main(int argc,char *argv[])
   fclose(infile);
 
   // Free
-  free(ap);
+  free(apin);
+  free(apout);
 
   return 0;
 }
