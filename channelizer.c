@@ -86,6 +86,8 @@ int main(int argc,char *argv[])
   // Allocate 
   if (ts.ndim==1) {
     // real to complex FFTs
+    rp1=fftwf_malloc(sizeof(fftwf_complex)*nchan);
+    rp2=fftwf_malloc(sizeof(fftwf_complex)*nchan);
     bp1=(float *) malloc(2*nchan*sizeof(float));
     bp2=(float *) malloc(2*nchan*sizeof(float));
     cp1=fftwf_malloc(sizeof(fftwf_complex)*(nchan+1));
@@ -148,7 +150,7 @@ int main(int argc,char *argv[])
     // Perform Fast Fourier Transform
     fftwf_execute(ftp1);
     fftwf_execute(ftp2);
-    
+
     // Unpack
     for (j=0;j<nchan;j++) {
       if (ts.ndim==1) {
