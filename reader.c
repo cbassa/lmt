@@ -5,6 +5,7 @@
 #include <getopt.h>
 #include <stdint.h>
 #include "timeseries.h"
+#include "lib/calc.h"
 
 #define LIM 256
 
@@ -14,11 +15,14 @@ int main(int argc,char *argv[])
   FILE *infile,*outfile;
   char infname[LIM],outfname[LIM];
   char *buffer;
+  calc_type calc;
+  double startMJD, samptime;
+  long skipbins;
   struct timeseries hdr;
   unsigned int bytes_read,blocksize=64000;
 
   // Decode options
-  while ((arg=getopt(argc,argv,"i:o:b:"))!=-1) {
+  while ((arg=getopt(argc,argv,"i:o:b:c:"))!=-1) {
     switch (arg) {
 
     case 'i':
@@ -32,6 +36,9 @@ int main(int argc,char *argv[])
     case 'b':
       blocksize=(unsigned int) atoi(optarg);
       break;
+      
+    case 'c':
+      calc.filename = optarg;
 
     default:
       return 0;
@@ -62,6 +69,9 @@ int main(int argc,char *argv[])
 
   // Write header struct
   fwrite(&hdr,1,sizeof(struct timeseries),outfile);
+
+  // Read Calc for geometric delay correction
+  ReadCalcfile(calc, startMJD, skipbins, samptime, 1);
 
   // Allocate buffer
   buffer=(char *) malloc(sizeof(char)*blocksize);
