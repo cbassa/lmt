@@ -22,6 +22,7 @@ int main(int argc,char *argv[])
   fftwf_complex *rp1,*rp2,*cp1,*cp2;
   fftwf_plan ftp1,ftp2;
   unsigned int bytes_read,nchan=128;
+  double offset;
 
   // Decode options
   while ((arg=getopt(argc,argv,"i:o:n:"))!=-1) {
@@ -55,7 +56,7 @@ int main(int argc,char *argv[])
   }
 
   // Open output file
-  outfile=fopen(outfname,"w");
+  outfile=fopen(outfname,"wb");
   
   // Check if output file exists
   if (outfile==NULL) {
@@ -67,9 +68,10 @@ int main(int argc,char *argv[])
   bytes_read=fread(&ts,1,sizeof(struct timeseries),infile);
 
   // Copy timeseries struct information to filterbank struct
-  fb.mjd_start=ts.mjd_start;
-  fb.intmjd=ts.intmjd;
-  fb.intsec=ts.intsec;
+  offset=(double) ts.obs_offset/(double) ts.bytes_per_second;
+  fb.mjd_start=ts.mjd_start+offset/86400.0;
+  //  fb.intmjd=ts.intmjd;
+  //  fb.intsec=ts.intsec;
   strcpy(fb.source,ts.source);
   strcpy(fb.telescope,ts.telescope);
   strcpy(fb.instrument,ts.instrument);
@@ -84,6 +86,8 @@ int main(int argc,char *argv[])
   // Allocate 
   if (ts.ndim==1) {
     // real to complex FFTs
+    rp1=fftwf_malloc(sizeof(fftwf_complex)*nchan);
+    rp2=fftwf_malloc(sizeof(fftwf_complex)*nchan);
     bp1=(float *) malloc(2*nchan*sizeof(float));
     bp2=(float *) malloc(2*nchan*sizeof(float));
     cp1=fftwf_malloc(sizeof(fftwf_complex)*(nchan+1));
@@ -110,6 +114,9 @@ int main(int argc,char *argv[])
     fb.tsamp=ts.tsamp*nchan;
   }
 
+  // Print information
+  printf("Channelizer: %d channels, %g MHz per channel, %g us sampling\n",fb.nchan,fb.fsamp,fb.tsamp*1e6);
+
   // Allocate character buffer
   buffer=(char *) malloc(sizeof(char)*4*nchan);
 
@@ -117,9 +124,13 @@ int main(int argc,char *argv[])
   fwrite(&fb,1,sizeof(struct filterbank),outfile);
 
   // Loop over contents
-  do {
+  for (;;) {
     // Read buffer
-    bytes_read=fread(buffer,1,4*nchan,infile);
+    bytes_read=fread(buffer,sizeof(char),4*nchan,infile);
+
+    // Exit when buffer is empty
+    if (bytes_read==0)
+      break;
 
     // Repack character buffer into FFTW buffers
     if (ts.ndim==1) {
@@ -139,7 +150,7 @@ int main(int argc,char *argv[])
     // Perform Fast Fourier Transform
     fftwf_execute(ftp1);
     fftwf_execute(ftp2);
-    
+
     // Unpack
     for (j=0;j<nchan;j++) {
       if (ts.ndim==1) {
@@ -159,7 +170,7 @@ int main(int argc,char *argv[])
     // Write
     fwrite(rp1,sizeof(fftwf_complex),nchan,outfile);
     fwrite(rp2,sizeof(fftwf_complex),nchan,outfile);
-  } while (bytes_read!=0);
+  } 
 
   // Close
   fclose(infile);

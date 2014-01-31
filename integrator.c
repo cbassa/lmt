@@ -2,22 +2,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "filterbank.h"
 #include <fftw3.h>
 #include <getopt.h>
+#include "filterbank.h"
 
 #define LIM 256
 
 int main(int argc,char *argv[])
 {
   int arg=0;
-  int i=0,j,k=0,nchan,nsub=128;
+  int i=0,j,k=0,nsub=128;
   fftwf_complex *rp1,*rp2;
   FILE *infile,*outfile;
   char infname[LIM],outfname[LIM];
   int bytes_read;
-  float *ap1,*ap2;
-  struct filterbank fb;
+  float *ap;
+  struct filterbank fbin,fbout;
 
   // Decode options
   while ((arg=getopt(argc,argv,"i:o:n:"))!=-1) {
@@ -60,43 +60,65 @@ int main(int argc,char *argv[])
   }
 
   // Read header
-  bytes_read=fread(&fb,1,sizeof(struct filterbank),infile);
+  bytes_read=fread(&fbin,1,sizeof(struct filterbank),infile);
+
+  // Copy filterbank struct
+  fbout.mjd_start=fbin.mjd_start;
+  fbout.intmjd=fbin.intmjd;
+  fbout.intsec=fbin.intsec;
+  strcpy(fbout.source,fbin.source);
+  strcpy(fbout.telescope,fbin.telescope);
+  strcpy(fbout.instrument,fbin.instrument);
+  fbout.freq=fbin.freq;
+  fbout.bw=fbin.bw;
+  fbout.npol=1; // Single polarization
+  fbout.nbit=fbin.nbit; // Floats
+  fbout.ndim=1; // Real output
+  fbout.nchan=fbin.nchan; // Number of channels
+  fbout.fsamp=fbin.fsamp; // Channelsize
+  fbout.tsamp=fbin.tsamp*nsub; // Updated sample size
+
+  // Print information
+  printf("Integrator: integrating %d spectra, %g us sampling\n",nsub,fbout.tsamp*1e6);
+  printf("Integrator: converting to %d polarizations, %d bit\n",fbout.npol,fbout.nbit);
+
+  // Write header struct
+  fwrite(&fbout,1,sizeof(struct filterbank),outfile);
 
   // Allocate buffers
-  rp1=fftwf_malloc(sizeof(fftwf_complex)*fb.nchan);
-  rp2=fftwf_malloc(sizeof(fftwf_complex)*fb.nchan);
-  ap1=(float *) malloc(sizeof(float)*fb.nchan);
-  ap2=(float *) malloc(sizeof(float)*fb.nchan);
+  rp1=fftwf_malloc(sizeof(fftwf_complex)*fbin.nchan);
+  rp2=fftwf_malloc(sizeof(fftwf_complex)*fbin.nchan);
+  ap=(float *) malloc(sizeof(float)*fbin.nchan);
 
   // Read buffers
-  do {
+  for (;;) {
     // Reset buffers
-    for (j=0;j<fb.nchan;j++) {
-      ap1[j]=0.0;
-      ap2[j]=0.0;
-    }
+    for (j=0;j<fbin.nchan;j++) 
+      ap[j]=0.0;
 
     // Accumulate subints
     for (i=0;i<nsub;i++) {
-      bytes_read=fread(rp1,sizeof(fftwf_complex),fb.nchan,infile);
-      bytes_read=fread(rp2,sizeof(fftwf_complex),fb.nchan,infile);
+      bytes_read=fread(rp1,sizeof(fftwf_complex),fbin.nchan,infile);
+      bytes_read=fread(rp2,sizeof(fftwf_complex),fbin.nchan,infile);
 
       // Sum results
-      for (j=0;j<fb.nchan;j++) {
-	ap1[j]+=rp1[j][0]*rp1[j][0]+rp1[j][1]*rp1[j][1];
-	ap2[j]+=rp2[j][0]*rp2[j][0]+rp2[j][1]*rp2[j][1];
+      for (j=0;j<fbin.nchan;j++) {
+	ap[j]+=rp1[j][0]*rp1[j][0]+rp1[j][1]*rp1[j][1];
+	ap[j]+=rp2[j][0]*rp2[j][0]+rp2[j][1]*rp2[j][1];
       }
     }
 
+    // Exit when buffer is empty
+    if (bytes_read==0)
+      break;
+
     // Scale
-    for (j=0;j<fb.nchan;j++) {
-      ap1[j]/=(float) nsub;
-      ap2[j]/=(float) nsub;
-      printf("%d %d %f %f\n",k,j,ap1[j],ap2[j]);
-    }
-    printf("\n");
-    k++;
-  } while (bytes_read!=0);
+    for (j=0;j<fbin.nchan;j++) 
+      ap[j]/=(float) nsub;
+
+    // Write
+    fwrite(ap,sizeof(float),fbin.nchan,outfile);
+  } 
 
   // Close
   fclose(infile);
@@ -105,8 +127,7 @@ int main(int argc,char *argv[])
   // Free
   fftwf_free(rp1);
   fftwf_free(rp2);
-  free(ap1);
-  free(ap2);
+  free(ap);
 
   return 0;
 }

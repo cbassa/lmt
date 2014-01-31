@@ -73,17 +73,26 @@ int main(int argc,char *argv[])
   // Read Calc for geometric delay correction
   ReadCalcfile(calc, startMJD, skipbins, samptime, 1);
 
+  // Print information
+  printf("Reader: %s with %s at %s\n",hdr.source,hdr.instrument,hdr.telescope);
+  printf("Reader: %s timeseries, %g us sampling, %d polarizations, %d bits\n",(hdr.ndim==1 ? "real" : "complex"),hdr.tsamp*1e6,hdr.npol,hdr.nbit);
+  printf("Reader: %g MHz bandwidth at %g MHz center frequency\n",hdr.bw,hdr.freq);
+
   // Allocate buffer
   buffer=(char *) malloc(sizeof(char)*blocksize);
 
   // Iterate over file
-  do {
+  for (;;) {
     // Read buffer
     bytes_read=fread(buffer,sizeof(char),blocksize,infile);
 
+    // Exit when buffer is empty
+    if (bytes_read==0)
+      break;
+
     // Write buffer
     fwrite(buffer,sizeof(char),bytes_read,outfile);
-  } while (bytes_read!=0);
+  } 
 
   // Close output file
   fclose(outfile);

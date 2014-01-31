@@ -127,8 +127,8 @@ struct timeseries read_dada_header(FILE *file)
   // Get bandwidth
   s.bw=read_double_value("BW",header);
 
-  // Get sampling time
-  s.tsamp=read_double_value("TSAMP",header);
+  // Get sampling time in s
+  s.tsamp=read_double_value("TSAMP",header)/1000000.0;
 
   // Get file_size
   s.file_size=read_uint64_value("FILE_SIZE",header);
@@ -158,7 +158,7 @@ struct timeseries read_dada_header(FILE *file)
   s.bytes_per_sample=s.nbit*s.npol*s.nchan*s.ndim/8;
 
   // Get samples per second
-  s.samples_per_second=(uint64_t) ceil(1000000.0/s.tsamp);
+  s.samples_per_second=(uint64_t) ceil(1.0/s.tsamp);
 
   // Get bytes per second
   s.bytes_per_second=s.samples_per_second*s.bytes_per_sample;
