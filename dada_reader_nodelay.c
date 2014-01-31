@@ -32,7 +32,7 @@ int main(int argc,char *argv[])
     case 'b':
       blocksize=(unsigned int) atoi(optarg);
       break;
-
+      
     default:
       return 0;
 
