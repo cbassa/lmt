@@ -14,7 +14,7 @@ int main(int argc,char *argv[])
   FILE *infile,*outfile;
   char infname[LIM],outfname[LIM];
   char *buffer;
-  struct timeseries hdr;
+  struct timeseries ts;
   unsigned int bytes_read,blocksize=64000;
 
   // Decode options
@@ -58,15 +58,16 @@ int main(int argc,char *argv[])
   }
 
   // Read header
-  hdr=read_dada_header(infile);
+  ts=read_dada_header(infile);
 
   // Write header struct
-  fwrite(&hdr,1,sizeof(struct timeseries),outfile);
+  fwrite(&ts,1,sizeof(struct timeseries),outfile);
 
   // Print information
-  printf("Reader: %s with %s at %s\n",hdr.source,hdr.instrument,hdr.telescope);
-  printf("Reader: %s timeseries, %g us sampling, %d polarizations, %d bits\n",(hdr.ndim==1 ? "real" : "complex"),hdr.tsamp*1e6,hdr.npol,hdr.nbit);
-  printf("Reader: %g MHz bandwidth at %g MHz center frequency\n",hdr.bw,hdr.freq);
+  printf("Reader: %s with %s at %s\n",ts.source,ts.instrument,ts.telescope);
+  printf("Reader: %s timeseries, %g us sampling, %d polarizations, %d bits\n",(ts.ndim==1 ? "real" : "complex"),ts.tsamp*1e6,ts.npol,ts.nbit);
+  printf("Reader: %g MHz bandwidth at %g MHz center frequency\n",ts.bw,ts.freq);
+
   // Allocate buffer
   buffer=(char *) malloc(sizeof(char)*blocksize);
 
