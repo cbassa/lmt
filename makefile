@@ -8,11 +8,7 @@ LFLAGS = -lm -L/home/leap/linux/lib -lfftw3f
 CC = gcc
 
 all: 
-<<<<<<< HEAD
-	make reader channelizer integrator filwriter donothing_fb dada_reader_nodelay dada_writer
-=======
-	make reader channelizer integrator filwriter donothing_fb dada_reader_nodelay dechannelizer
->>>>>>> 2e974d17da3a50f989f251eb8e03f0bee7a82f87
+	make reader channelizer integrator filwriter donothing_fb dada_reader_nodelay dechannelizer dada_writer
 
 donothing_fb: donothing_fb.o
 	$(CC) -o donothing_fb donothing_fb.o $(LFLAGS)
@@ -32,14 +28,11 @@ integrator: integrator.o
 channelizer: channelizer.o dada.o
 	$(CC) -o channelizer channelizer.o dada.o $(LFLAGS)
 
-<<<<<<< HEAD
 dada_writer: dada_writer.o
 	$(CC) -o dada_writer dada_writer.o $(LFLAGS)
 
-=======
 dechannelizer: dechannelizer.o dada.o
 	$(CC) -o dechannelizer dechannelizer.o dada.o $(LFLAGS)
->>>>>>> 2e974d17da3a50f989f251eb8e03f0bee7a82f87
 
 clean:
 	rm -f *.o
