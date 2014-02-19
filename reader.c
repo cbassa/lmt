@@ -5,7 +5,7 @@
 #include <getopt.h>
 #include <stdint.h>
 #include "timeseries.h"
-#include "lib/calc.h"
+#include "lib/delays.h"
 
 #define LIM 256
 
@@ -16,30 +16,45 @@ int main(int argc,char *argv[])
   char infname[LIM],outfname[LIM];
   char *buffer;
   calc_type calc;
+  gps_type gps;
   double startMJD, samptime;
   long skipbins;
   struct timeseries hdr;
   unsigned int bytes_read,blocksize=64000;
 
   // Decode options
-  while ((arg=getopt(argc,argv,"i:o:b:c:"))!=-1) {
+  while ((arg=getopt(argc,argv,"i:o:b:c:g:r:s:"))!=-1) {
     switch (arg) {
-
+      // Get input filename (dada file)
     case 'i':
       strcpy(infname,optarg);
       break;
-
+      // Get output filename (fifo)
     case 'o':
       strcpy(outfname,optarg);
       break;
-
+      // Get the blocksize
     case 'b':
       blocksize=(unsigned int) atoi(optarg);
       break;
-      
+      // Get calc filename      
     case 'c':
       calc.filename = optarg;
-
+      break;
+      // Get GPS filename of telescope
+    case 'g':
+      gps.filename = optarg;
+      break;
+      // Get GPS filename of reference telescope
+    case 'r':
+      gps.filenameref = optarg;
+      break;
+      // Get number of bins to shift
+    case 's':
+      skipbins = atoi(optarg);
+      if (skipbins < 0) {fprintf(stderr, "Error, binshift cannot be negative\n");exit(0);}
+      break;
+      
     default:
       return 0;
 
@@ -51,16 +66,16 @@ int main(int argc,char *argv[])
   
   // Check if input file exists
   if (infile==NULL) {
-    fprintf(stderr,"Error opening %s\n",infname);
+    fprintf(stderr,"Error opening inputfile %s\n",infname);
     exit;
   }
 
   // Open output file
   outfile=fopen(outfname,"w");
   
-  // Check if input file exists
+  // Check if output file can be opened
   if (outfile==NULL) {
-    fprintf(stderr,"Error opening %s\n",outfname);
+    fprintf(stderr,"Error opening outputfile %s\n",outfname);
     exit;
   }
 
@@ -70,8 +85,12 @@ int main(int argc,char *argv[])
   // Write header struct
   fwrite(&hdr,1,sizeof(struct timeseries),outfile);
 
+  // Read the GPS clockfile
+  ReadGPSFiles(&gps, hdr.mjd_start); 
+
   // Read Calc for geometric delay correction
-  ReadCalcfile(calc, startMJD, skipbins, samptime, 1);
+  calc.Poly = (double*) calloc(NPOLYS, sizeof(double));
+  ReadCalcfile(&calc, hdr.mjd_start, skipbins, hdr.tsamp, 1);
 
   // Print information
   printf("Reader: %s with %s at %s\n",hdr.source,hdr.instrument,hdr.telescope);
@@ -102,6 +121,9 @@ int main(int argc,char *argv[])
 
   // Free buffer
   free(buffer);
+  
+  // Free Calc
+  free(calc.Poly);
 
   return 0;
 }
