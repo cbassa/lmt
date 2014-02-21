@@ -17,13 +17,13 @@ int main(int argc,char *argv[])
 {
   int arg=0;
   FILE *infile,*outfile,*dadahdr;
-  char infname[LIM],outfname[LIM],hdrfname[LIM];
-  char *buffer,ut[30];
+  char infname[LIM],outfname[LIM],hdrfname[LIM]="Dada_header.txt";
+  char *buffer,*header,ut[30];
   struct timeseries ts;
-  unsigned int bytes_read,blocksize=64000;
+  unsigned int bytes_read;
 
   // Decode options
-  while ((arg=getopt(argc,argv,"i:o:b:s:"))!=-1) {
+  while ((arg=getopt(argc,argv,"i:o:s:"))!=-1) {
     switch (arg) {
 
     case 'i':
@@ -32,10 +32,6 @@ int main(int argc,char *argv[])
 
     case 'o':
       strcpy(outfname,optarg);
-      break;
-
-    case 'b':
-      blocksize=(unsigned int) atoi(optarg);
       break;
 
     case 's':
@@ -58,14 +54,14 @@ int main(int argc,char *argv[])
   }
 
   //Read in block header
-  fread(&ts,1,sizeof(struct timeseries),infile);
+  bytes_read=fread(&ts,1,sizeof(struct timeseries),infile);
 
   //Open header template
   dadahdr=fopen(hdrfname,"r");
 
   //Check if template file exists
   if (dadahdr==NULL) {
-    fprintf(stderr,"Error opening %s\n",hdrfname);
+    fprintf(stderr,"Error opening header file %s\n",hdrfname);
     exit;
   }
 
@@ -78,49 +74,39 @@ int main(int argc,char *argv[])
     exit;
   }
 
-  /*********Construct header for data file***********/
-
-  //Allocate memo
-  buffer=(char *) malloc(sizeof(char)*HEADERSIZE);
-
-  //Initialise
-  memset(buffer,0,HEADERSIZE);
-
+  //Allocate memory
+  header=(char *) malloc(sizeof(char)*HEADERSIZE);
+  buffer=(char *) malloc(sizeof(char)*ts.nsamp);
+  
   //Read in template
-  fread(buffer,sizeof(char),HEADERSIZE,dadahdr);
+  bytes_read=fread(header,sizeof(char),HEADERSIZE,dadahdr);
   fclose(dadahdr);
 
   //Modify content based on info in struct
-  ascii_header_set(buffer,"SOURCE","%s",ts.source);
-  ascii_header_set(buffer,"TELESCOPE","%s",ts.telescope);
-  ascii_header_set(buffer,"INSTRUMENT","%s",ts.instrument);
-  ascii_header_set(buffer,"FREQ","%lf",ts.freq);
-  ascii_header_set(buffer,"BW","%lf",ts.bw);
-  ascii_header_set(buffer,"TSAMP","%lf",ts.tsamp*1.0e6);
-  ascii_header_set(buffer,"FILE_SIZE","%ld",ts.file_size);
-  ascii_header_set(buffer,"OBS_OFFSET","%ld",ts.obs_offset);
-  ascii_header_set(buffer,"MJD_START","%.11lf",ts.mjd_start);
+  ascii_header_set(header,"SOURCE","%s",ts.source);
+  ascii_header_set(header,"TELESCOPE","%s",ts.telescope);
+  ascii_header_set(header,"INSTRUMENT","%s",ts.instrument);
+  ascii_header_set(header,"FREQ","%lf",ts.freq);
+  ascii_header_set(header,"BW","%lf",ts.bw);
+  ascii_header_set(header,"TSAMP","%lf",ts.tsamp*1.0e6);
+  ascii_header_set(header,"FILE_SIZE","%ld",ts.file_size);
+  ascii_header_set(header,"OBS_OFFSET","%ld",ts.obs_offset);
+  ascii_header_set(header,"MJD_START","%.11lf",ts.mjd_start);
   mjd2date(ts.mjd_start,ut);
-  ascii_header_set(buffer,"UTC_START","%s",ut);
-  //ascii_header_set(buffer,"RA","%s",ra);
-  //ascii_header_set(buffer,"DEC","%s",dec);
-  //ascii_header_set(buffer,"FILE_NAME","%s",filebasename);
+  ascii_header_set(header,"UTC_START","%s",ut);
+  //ascii_header_set(header,"RA","%s",ra);
+  //ascii_header_set(header,"DEC","%s",dec);
+  //ascii_header_set(header,"FILE_NAME","%s",filebasename);
 
   /****************************************************/
 
   // Write header
-  fwrite(buffer,sizeof(char),HEADERSIZE,outfile);
-
-  // Free up buffer
-  free(buffer);
-
-  // Allocate memo for data block
-  buffer=(char *) malloc(sizeof(char)*blocksize);
+  fwrite(header,sizeof(char),HEADERSIZE,outfile);
 
   // Iterate over file to read and write data block(s)
   for (;;) {
     // Read buffer
-    bytes_read=fread(buffer,sizeof(char),blocksize,infile);
+    bytes_read=fread(buffer,sizeof(char),ts.nsamp,infile);
 
     // Exit when buffer is empty
     if (bytes_read==0)
@@ -132,6 +118,9 @@ int main(int argc,char *argv[])
 
   //Clean up
   free(buffer);
+  free(header);
+
+  // Close files
   fclose(infile);
   fclose(outfile);
 

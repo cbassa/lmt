@@ -21,6 +21,7 @@ int main(int argc,char *argv[])
   fftwf_plan ftp1,ftp2;
   unsigned int bytes_read;
   double offset;
+  float *buffer;
 
   // Decode options
   while ((arg=getopt(argc,argv,"i:o:"))!=-1) {
@@ -75,12 +76,16 @@ int main(int argc,char *argv[])
   ts.ndim=fb.ndim; 
   ts.nchan=1; 
   ts.tsamp=fb.tsamp/(double) fb.nchan; // Updated sample size
+  ts.nsamp=4*fb.nchan;
 
   // Allocate for complex to complex FFTs
   rp1=fftwf_malloc(sizeof(fftwf_complex)*fb.nchan);
   rp2=fftwf_malloc(sizeof(fftwf_complex)*fb.nchan);
   cp1=fftwf_malloc(sizeof(fftwf_complex)*fb.nchan);
   cp2=fftwf_malloc(sizeof(fftwf_complex)*fb.nchan);
+  
+  // Allocate output buffer
+  buffer=(float *) malloc(sizeof(float)*ts.nsamp);
 
   // FFTW Plans
   ftp1=fftwf_plan_dft_1d(fb.nchan,rp1,cp1,FFTW_BACKWARD,FFTW_MEASURE);
@@ -106,9 +111,16 @@ int main(int argc,char *argv[])
     fftwf_execute(ftp1);
     fftwf_execute(ftp2);
 
+    // Repack into interleaving values
+    for (i=0,j=0;i<fb.nchan;i++,j+=4) {
+      buffer[j]=cp1[i][0];
+      buffer[j+1]=cp1[i][1];
+      buffer[j+2]=cp2[i][0];
+      buffer[j+3]=cp2[i][1];
+    }
+
     // Write
-    fwrite(cp1,sizeof(fftwf_complex),fb.nchan,outfile);
-    fwrite(cp2,sizeof(fftwf_complex),fb.nchan,outfile);
+    fwrite(buffer,sizeof(float),ts.nsamp,outfile);
   } 
 
   // Close
