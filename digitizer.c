@@ -12,12 +12,17 @@ char digitize(float f,float scale,float offset)
 {
   char c;
 
+  // Apply scaling and offset
   f=f*scale+offset;
+
+  // Keep within bounds
   if (f>127.0)
     f=127.0;
   else if (f<-128.0)
     f=-128.0;
-  c=(char) f;
+
+  // Convert to 8bit char, adding to ensure correct rounding
+  c=(char) floor(f);
 
   return c;
 }
@@ -34,7 +39,7 @@ int main(int argc,char *argv[])
   float scale=1.0,offset=0.0;
 
   // Decode options
-  while ((arg=getopt(argc,argv,"i:o:"))!=-1) {
+  while ((arg=getopt(argc,argv,"i:o:S:O:"))!=-1) {
     switch (arg) {
 
     case 'i':
@@ -43,6 +48,14 @@ int main(int argc,char *argv[])
 
     case 'o':
       strcpy(outfname,optarg);
+      break;
+
+    case 'S':
+      scale=atof(optarg);
+      break;
+
+    case 'O':
+      offset=atof(optarg);
       break;
 
     default:
@@ -69,8 +82,11 @@ int main(int argc,char *argv[])
     exit;
   }
 
-  // Read in block header
+  // Read header
   bytes_read=fread(&ts,1,sizeof(struct timeseries),infile);
+
+  // Update information
+  ts.nbit=8; // Back to 8bit chars
 
   // Write the header
   fwrite(&ts,1,sizeof(struct timeseries),outfile);

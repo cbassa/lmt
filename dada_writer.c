@@ -94,6 +94,13 @@ int main(int argc,char *argv[])
   ascii_header_set(header,"MJD_START","%.11lf",ts.mjd_start);
   mjd2date(ts.mjd_start,ut);
   ascii_header_set(header,"UTC_START","%s",ut);
+  ascii_header_set(header,"NDIM","%d",ts.ndim);
+
+  // Need to set DSB parameter
+  if (ts.ndim==1)
+    ascii_header_set(header,"DSB","%d",0);
+  else if (ts.ndim==2)
+    ascii_header_set(header,"DSB","%d",1);
   //ascii_header_set(header,"RA","%s",ra);
   //ascii_header_set(header,"DEC","%s",dec);
   //ascii_header_set(header,"FILE_NAME","%s",filebasename);
