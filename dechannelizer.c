@@ -145,6 +145,17 @@ int main(int argc,char *argv[])
       rp2[j][1]=cp2[i][1];
     }
 
+    /* Unclear what to do with bin n+1    
+    // Set N+1 channels to zero
+    if (ts.ndim==1) {
+      rp1[fb.nchan][0]=rp1[0][0];
+      rp1[fb.nchan][1]=0.0;
+      rp2[fb.nchan][0]=rp2[0][0];
+      rp2[fb.nchan][1]=0.0;
+      rp1[0][1]=0.0;
+      rp2[0][1]=0.0;
+    }
+    */
     // Perform Fast Fourier Transform
     fftwf_execute(ftp1);
     fftwf_execute(ftp2);
