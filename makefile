@@ -3,12 +3,18 @@ CFLAGS = -O3 -I/home/leap/linux/include
 
 # Linking flags
 LFLAGS = -lm -L/home/leap/linux/lib -lfftw3f
+LPGFLAGS = -lcpgplot -lpgplot -lX11 -lpng
 
-# Compiler
-CC = gcc -g
+
+# Compilers
+CC = gcc
+F77 = gfortran
 
 all: 
-	make reader channelizer integrator filwriter donothing_fb dada_reader_nodelay dechannelizer dada_writer digitizer
+	make reader channelizer integrator filwriter donothing_fb dada_reader_nodelay dechannelizer dada_writer digitizer simple_integrator plotter
+
+plotter: plotter.o
+	$(F77) -o plotter plotter.o $(LFLAGS) $(LPGFLAGS)
 
 donothing_fb: donothing_fb.o
 	$(CC) -o donothing_fb donothing_fb.o $(LFLAGS)
@@ -24,6 +30,9 @@ dada_reader_nodelay: dada_reader_nodelay.o dada.o
 
 integrator: integrator.o
 	$(CC) -o integrator integrator.o $(LFLAGS)
+
+simple_integrator: simple_integrator.o
+	$(CC) -o simple_integrator simple_integrator.o $(LFLAGS)
 
 digitizer: digitizer.o
 	$(CC) -o digitizer digitizer.o $(LFLAGS)
