@@ -135,15 +135,15 @@ int main(int argc,char *argv[])
     // Repack character buffer into FFTW buffers
     if (ts.ndim==1) {
       for(j=0,k=0;j<4*nchan;j+=2,k++) {
-	bp1[k]=(float) buffer[j];
-	bp2[k]=(float) buffer[j+1];
+	bp1[k]=0.5+(float) buffer[j];
+	bp2[k]=0.5+(float) buffer[j+1];
       }
     } else if (ts.ndim==2) {
       for (j=0,k=0;j<4*nchan;j+=4,k++) {
-	rp1[k][0]=(float) buffer[j];
-	rp1[k][1]=(float) buffer[j+1];
-	rp2[k][0]=(float) buffer[j+2];
-	rp2[k][1]=(float) buffer[j+3];
+	rp1[k][0]=0.5+(float) buffer[j];
+	rp1[k][1]=0.5+(float) buffer[j+1];
+	rp2[k][0]=0.5+(float) buffer[j+2];
+	rp2[k][1]=0.5+(float) buffer[j+3];
       }
     }
 
