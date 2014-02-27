@@ -9,6 +9,11 @@
 
 #define LIM 256
 
+void Usage()
+{
+  printf("Usage: reader -i <input file> -o <output file> [-b <blocksize> (64000)] -c <calcfile> -g <gpsfile> -r <refgpsfile> -s <samples to skip>\n");
+}
+
 int main(int argc,char *argv[])
 {
   int arg=0;
@@ -19,10 +24,10 @@ int main(int argc,char *argv[])
   gps_type gps;
   delays_type delays;
   double startMJD, samptime, startgeooffset;
-  long skipbins, binnumber, reducedbinnumber;
+  long binnumber, reducedbinnumber;
   struct timeseries hdr;
   unsigned int bytes_read,blocksize=64000;
-  int iset=0, oset=0, bset=0, cset=0, gset=0, rset=0, sset=0;
+  int iset=0, oset=0, cset=0, gset=0, rset=0, sset=0;
 
   // Decode options
   while ((arg=getopt(argc,argv,"i:o:b:c:g:r:s:"))!=-1) {
@@ -40,7 +45,6 @@ int main(int argc,char *argv[])
       // Get the blocksize
     case 'b':
       blocksize=(unsigned int) atoi(optarg);
-      bset = 1;
       break;
       // Get calc filename      
     case 'c':
@@ -57,10 +61,9 @@ int main(int argc,char *argv[])
       gps.filenameref = optarg;
       rset = 1;
       break;
-      // Get number of bins to shift
+      // Get number of samples to shift
     case 's':
-      skipbins = atoi(optarg);
-      if (skipbins < 0) {fprintf(stderr, "Error, binshift cannot be negative\n");exit(0);}
+      delays.skipsamples = atoi(optarg);
       sset = 1;
       break;
       
@@ -70,13 +73,12 @@ int main(int argc,char *argv[])
   }
   
   // Check that all necessary parameters are set.
-  if (!iset){ fprintf(stderr, "Please provide input parameter with -i\n"); exit(0);}
-  if (!oset){ fprintf(stderr, "Please provide output parameter with -o\n"); exit(0);}
-  if (!bset){ fprintf(stderr, "Please provide blocksize with -b\n"); exit(0);}
-  if (!cset){ fprintf(stderr, "Please provide calcfilename with -c\n"); exit(0);}
-  if (!gset){ fprintf(stderr, "Please provide gps filename with -g\n"); exit(0);}
-  if (!rset){ fprintf(stderr, "Please provide reference gps filename with -r\n"); exit(0);}
-  if (!sset){ fprintf(stderr, "Please provide number of bins to shift with -s\n"); exit(0);}
+  if (!iset){ fprintf(stderr, "Please provide input parameter with -i\n"); Usage(); exit(0);}
+  if (!oset){ fprintf(stderr, "Please provide output parameter with -o\n"); Usage(); exit(0);}
+  if (!cset){ fprintf(stderr, "Please provide calcfilename with -c\n"); Usage(); exit(0);}
+  if (!gset){ fprintf(stderr, "Please provide gps filename with -g\n"); Usage(); exit(0);}
+  if (!rset){ fprintf(stderr, "Please provide reference gps filename with -r\n"); Usage(); exit(0);}
+  if (!sset){ fprintf(stderr, "Please provide number of bins to shift with -s\n"); Usage(); exit(0);}
 
   // Open input file
   infile=fopen(infname,"r");
@@ -98,27 +100,37 @@ int main(int argc,char *argv[])
 
   // Read header
   hdr=read_dada_header(infile);
+  if (hdr.ndim == 1) hdr.tsamp *= 2; // Sampling time of real data will become twice the value once complex.
 
   // Write header struct
   fwrite(&hdr,1,sizeof(struct timeseries),outfile);
 
   // Read the GPS clockfile
   ReadGPSFiles(&gps, hdr.mjd_start); 
+  printf("clockoffset: %lf\n", gps.ClockOffset);
 
   // Read Calc for geometric delay correction
   calc.Poly = (double*) calloc(NPOLYS, sizeof(double));
-  ReadCalcfile(&calc, hdr.mjd_start, skipbins, hdr.tsamp, 1);
+  ReadCalcfile(&calc, hdr.mjd_start, delays.skipsamples, hdr.tsamp, 1);
   binnumber = (long)(calc.Offset/hdr.tsamp + 0.5); // binnumber from start of calc in output bins
   reducedbinnumber = binnumber-(long)(calc.CountCalcSteps*CALCSTEPSIZE/hdr.tsamp); // binnumber from start of current Calc step
-  printf("binnumber: %e\n", binnumber);
-  printf("reducedbinnumber: %e\n", reducedbinnumber);
+  printf("calc offset: %e\n", calc.Offset);
+  printf("binnumber: %ld\n", binnumber);
+  printf("reducedbinnumber: %ld\n", reducedbinnumber);
   printf("samptime: %e\n", hdr.tsamp);
   startgeooffset = GetStartGeoOffset(&calc, hdr.tsamp, reducedbinnumber);
-  printf("startgeooffset: %e\n");
+  printf("startgeooffset: %e s\n", startgeooffset);
+  // Intialize delays that keep track on how many bins have been shifted
+  delays.samplesshifted = delays.geoshifted = 0;
   Add_Geo_Delays(&delays, startgeooffset, hdr.tsamp);
   Add_Clock_Delays(&delays, &gps, hdr.tsamp);
+  printf("skipsamples: %ld\n", delays.skipsamples);
+  printf("samplesshifted: %ld\n", delays.samplesshifted);
+  printf("geoshifted: %ld\n", delays.geoshifted);
 
-  exit(0);
+  // Skipsamples in infile
+  fseek(infile, 4*delays.skipsamples, SEEK_SET);
+
   // Print information
   printf("Reader: %s with %s at %s\n",hdr.source,hdr.instrument,hdr.telescope);
   printf("Reader: %s timeseries, %g us sampling, %d polarizations, %d bits\n",(hdr.ndim==1 ? "real" : "complex"),hdr.tsamp*1e6,hdr.npol,hdr.nbit);

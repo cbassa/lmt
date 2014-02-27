@@ -11,9 +11,6 @@
 #define MAXDELAYOFFSET 0.03 // This is the number of seconds to add to the beginning of each stream so that we can correct for geometric delay
 #define DELTA 0.0000001
 
-const float PI = M_PI;
-
-
 // Define Calc structure
 typedef struct {
   double *Poly;
@@ -31,8 +28,8 @@ typedef struct {
 } gps_type;
 
 typedef struct{
-  long skipbins;
-  long binsshifted;
+  long skipsamples;
+  long samplesshifted;
   long geoshifted;
   float frac_delay_pol1;
   float frac_delay_pol2;

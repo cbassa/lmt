@@ -9,6 +9,11 @@
 
 #define LIM 256
 
+void Usage()
+{
+  printf("Usage: reader -i <input file> -o <output file> [-b <blocksize> (64000)] -c <calcfile> -f <\"fracdelay_pol1 fracdelay_pol2\"> -p <\"phaseoffset_pol1 phaseoffset_pol2\">\n");
+}
+
 int main(int argc,char *argv[])
 {
   int arg=0;
@@ -20,6 +25,7 @@ int main(int argc,char *argv[])
   calc_type calc;
   phases_type phases;
   struct filterbank fbin,fbout;
+  int iset=0, oset=0, cset=0, fset=0, pset=0;
 
   // Decode options
   while ((arg=getopt(argc,argv,"i:o:b:c:f:p:"))!=-1) {
@@ -27,10 +33,12 @@ int main(int argc,char *argv[])
 
     case 'i':
       strcpy(infname,optarg);
+      iset=1;
       break;
 
     case 'o':
       strcpy(outfname,optarg);
+      oset=1;
       break;
 
       // Get the blocksize
@@ -41,22 +49,32 @@ int main(int argc,char *argv[])
       // Get calc filename 
     case 'c':
       calc.filename = optarg;
+      cset=1;
       break;
 
       // Get fractional delays for pol1 and pol2 
     case 'f':
       sprintf(optarg, "%f %f\n", &phases.frac_delay_pol1, &phases.frac_delay_pol1);
+      fset=1;
       break;
 
       // Get phase offsets for pol1 and pol2 
     case 'p':
       sprintf(optarg, "%f %f\n", &phases.phase_offset_pol1, &phases.phase_offset_pol2);
+      pset=1;
       break;
 
     default:
       return 0;
     }
   }
+
+  // Check that all necessary parameters are set.
+  if (!iset){ fprintf(stderr, "Please provide input parameter with -i\n"); Usage(); exit(0);}
+  if (!oset){ fprintf(stderr, "Please provide output parameter with -o\n"); Usage(); exit(0);}
+  if (!cset){ fprintf(stderr, "Please provide calcfilename with -c\n"); Usage(); exit(0);}
+  if (!fset){ fprintf(stderr, "Please provide fraction delays with -f\n"); Usage(); exit(0);}
+  if (!pset){ fprintf(stderr, "Please provide phase offsets with -p\n"); Usage(); exit(0);}
 
   // Open input file
   infile=fopen(infname,"r");
