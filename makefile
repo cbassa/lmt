@@ -26,7 +26,7 @@ filwriter: filwriter.o dada.o
 	$(CC) -o filwriter filwriter.o dada.o $(LFLAGS)
 
 reader: reader.o dada.o lib/delays.o
-	$(CC) -o reader reader.o dada.o lib/delays.o $(LFLAGS)
+	$(CC) -o ~/bin/reader reader.o dada.o lib/delays.o $(LFLAGS)
 
 dada_reader_nodelay: dada_reader_nodelay.o dada.o
 	$(CC) -o dada_reader_nodelay dada_reader_nodelay.o dada.o $(LFLAGS)
@@ -52,3 +52,5 @@ dechannelizer: dechannelizer.o dada.o
 clean:
 	rm -f *.o
 	rm -f *~
+	rm -f lib/*.o	
+	rm -f lib/*~
