@@ -204,7 +204,7 @@ int main(int argc,char *argv[])
       obsfreq=fbin.freq+fbin.bw*(float)i/(float)(fbin.nchan-1)-0.5*fbin.bw;
       fjm[i]=jmcalculator(obsfreq,jm,njones);                          
   }
-      
+  printf("Commencing infinite loop");
         
   // Loop over file contents
   for (;;) {
