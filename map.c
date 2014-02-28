@@ -201,7 +201,7 @@ int main(int argc,char *argv[])
   fjm=(struct jones *) malloc(sizeof(struct jones)*fbin.nchan); 
   
   for(i=0;i<fbin.nchan;i++) {
-      obsfreq=fbin.freq+fbin.bw*(float)i/(float)(nchan-1)-0.5*fbin.bw;
+      obsfreq=fbin.freq+fbin.bw*(float)i/(float)(fbin.nchan-1)-0.5*fbin.bw;
       fjm[i]=jmcalculator(obsfreq,jm,njones);                          
   }
       
@@ -215,13 +215,13 @@ int main(int argc,char *argv[])
     // Exit when buffer is empty
     if (bytes_read==0)
       break;
-
+     
     // Copy
     for (j=0;j<fbin.nchan;j++) {
-      cp1[j][0]=fjm[0][0]*rp1[j][0]-fjm[0][1]*rp1[j][1]+fjm[1][0]*rp2[j][0]-fjm[1][1]*rp2[j][1];
-      cp1[j][1]=fjm[0][1]*rp1[j][0]+fjm[0][0]*rp1[j][1]+fjm[1][0]*rp2[j][1]+fjm[1][1]*rp2[j][0];
-      cp2[j][0]=fjm[2][0]*rp1[j][0]-fjm[2][1]*rp1[j][1]+fjm[3][0]*rp2[j][0]-fjm[3][1]*rp2[j][1];
-      cp2[j][1]=fjm[2][0]*rp1[j][1]+fjm[2][1]*rp1[j][0]+fjm[3][0]*rp2[j][1]+fjm[3][1]*rp2[j][0];
+      cp1[j][0]=fjm[j].a[0][0]*rp1[j][0]-fjm[j].a[0][1]*rp1[j][1]+fjm[j].a[1][0]*rp2[j][0]-fjm[j].a[1][1]*rp2[j][1];
+      cp1[j][1]=fjm[j].a[0][1]*rp1[j][0]+fjm[j].a[0][0]*rp1[j][1]+fjm[j].a[1][0]*rp2[j][1]+fjm[j].a[1][1]*rp2[j][0];
+      cp2[j][0]=fjm[j].a[2][0]*rp1[j][0]-fjm[j].a[2][1]*rp1[j][1]+fjm[j].a[3][0]*rp2[j][0]-fjm[j].a[3][1]*rp2[j][1];
+      cp2[j][1]=fjm[j].a[2][0]*rp1[j][1]+fjm[j].a[2][1]*rp1[j][0]+fjm[j].a[3][0]*rp2[j][1]+fjm[j].a[3][1]*rp2[j][0];
     }
 
     // Write
