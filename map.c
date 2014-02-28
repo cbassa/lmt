@@ -9,10 +9,18 @@
 
 #define LIM 256
 
+
+// STRUCTS
+// The struct that contains the Jones matrices; frequency and the Jones matrix in complex numbers
+
 struct jones {
   float freq;
   fftwf_complex a[4];
 };
+
+
+
+//FUNCTIONS
 
 // Read a line of maximum length int lim from file FILE into string s
 int fgetline(FILE *file,char *s,int lim)
@@ -29,17 +37,54 @@ int fgetline(FILE *file,char *s,int lim)
   return i;
 }
 
+//The function that computes the Jones matrix for a specific frequency. Its input are 
+//"frequency, the Jones matrix array from the input file, the number of frequencies it includes"
+struct jones jmcalculator (float freq, struct jones *fjones, int njones){
+       
+ int counter=0,i,j; // counter is the counter that will give the frequency just above obsfreq
+ struct jones jonesm;
+       
+ if(freq<fjones[0].freq)
+    {
+    fprintf(stderr,"The observation frequency is lower than the minimum frequency in the Jones matrix... Exiting\n");
+    exit;                      
+    }  
+  else if(freq>fjones[njones-1].freq)
+    {
+    fprintf(stderr,"The observation frequency is higher than the maximum frequency in the Jones matrix... Exiting\n");
+    exit;                      
+    }  
+  else
+    {
+    while(fjones[counter].freq<freq){counter++;}                           
+    }
+
+ //computing the Jones matrix, jonesm, that will be used for obsfreq. Usage of linear interpolation
+ jonesm.freq=freq;
+ 
+ for(i=0;i<4;i++) {
+        for(j=0;j<2;j++)
+        jonesm.a[i][j]=((fjones[counter].a[i][j]-fjones[counter-1].a[i][j])/(fjones[counter].freq-fjones[counter-1].freq))*(freq-fjones[counter-1].freq)+fjones[counter-1].a[i][j];                  
+ }
+ 
+    return jonesm;
+}
+
+
+// MAIN
+
+
 int main(int argc,char *argv[])
 {
   int arg=0;
-  int i,j,bytes_read,count1,count2,countf,jmfnofreq;
+  int i,j,bytes_read,njones;
   fftwf_complex *rp1,*rp2,*cp1,*cp2;
   FILE *infile,*outfile,*jonesfile;
   char infname[LIM],outfname[LIM],jonesfname[LIM],line[LIM];
-  double *jonesarr,temp,obsfreq,freqb1,freqb2,*jmffreqarr,jonesm[7];
   struct filterbank fbin,fbout;
-  struct jones *jm;
-  int njones;
+  struct jones *jm,*fjm;
+  float obsfreq;
+  
 
   // Getting the parameters from the command line
   while ((arg=getopt(argc,argv,"i:o:j:"))!=-1) {
@@ -113,7 +158,6 @@ int main(int argc,char *argv[])
   cp2=fftwf_malloc(sizeof(fftwf_complex)*fbout.nchan);
   
   
-  //============================================================================
   //This section of the code reads the Jones matrix file and computes the 
   //Jones matrix specifically for the frequency of the obs file
   
@@ -124,17 +168,17 @@ int main(int argc,char *argv[])
   if (jonesfile==NULL) {
     fprintf(stderr,"Error opening %s\n",jonesfname);
     exit;
-  }
+ }  
   
   // Count elements in polcal file
   i=0;
   while (fgetline(jonesfile,line,LIM)>0) 
     i++;
   rewind(jonesfile);
-  njones=i;
-  
-  // Allocate
-  jm=(struct jones *) malloc(sizeof(struct jones)*njones);
+  njones=i;  
+   
+  // Allocate the memory for all the jones matrices retrieved from the file
+  jm=(struct jones *) malloc(sizeof(struct jones)*njones); 
   
   // Read jones matrices
   for (i=0;i<njones;i++) {
@@ -148,22 +192,20 @@ int main(int argc,char *argv[])
 	   &jm[i].a[2][1],
 	   &jm[i].a[3][0],
 	   &jm[i].a[3][1]);
-  }
+  }  
+  
+  //Closing the jonesfile
   fclose(jonesfile);
-
-  printf("Number of Jones matrices: %d\n",njones);
-  for (i=0;i<njones;i++)
-    printf("%f %e %e %e %e %e %e %e %e\n",jm[i].freq,
-	   jm[i].a[0][0],
-	   jm[i].a[0][1],
-	   jm[i].a[1][0],
-	   jm[i].a[1][1],
-	   jm[i].a[2][0],
-	   jm[i].a[2][1],
-	   jm[i].a[3][0],
-	   jm[i].a[3][1]);
-
-  /*    
+  
+  // Creating an array of jones structs that will contain the Jones matrices for all frequency bins
+  fjm=(struct jones *) malloc(sizeof(struct jones)*fbin.nchan); 
+  
+  for(i=0;i<fbin.nchan;i++) {
+      obsfreq=fbin.freq+fbin.bw*(float)i/(float)(nchan-1)-0.5*fbin.bw;
+      fjm[i]=jmcalculator(obsfreq,jm,njones);                          
+  }
+      
+        
   // Loop over file contents
   for (;;) {
     // Read buffers
@@ -176,17 +218,17 @@ int main(int argc,char *argv[])
 
     // Copy
     for (j=0;j<fbin.nchan;j++) {
-      cp1[j][0]=jonesm[0]*rp1[j][0]-jonesm[1]*rp1[j][1]+jonesm[2]*rp2[j][0]-jonesm[3]*rp2[j][1];
-      cp1[j][1]=jonesm[1]*rp1[j][0]+jonesm[0]*rp1[j][1]+jonesm[2]*rp2[j][1]+jonesm[3]*rp2[j][0];
-      cp2[j][0]=jonesm[4]*rp1[j][0]-jonesm[5]*rp1[j][1]+jonesm[6]*rp2[j][0]-jonesm[7]*rp2[j][1];
-      cp2[j][1]=jonesm[4]*rp1[j][1]+jonesm[5]*rp1[j][0]+jonesm[6]*rp2[j][1]+jonesm[7]*rp2[j][0];
+      cp1[j][0]=fjm[0][0]*rp1[j][0]-fjm[0][1]*rp1[j][1]+fjm[1][0]*rp2[j][0]-fjm[1][1]*rp2[j][1];
+      cp1[j][1]=fjm[0][1]*rp1[j][0]+fjm[0][0]*rp1[j][1]+fjm[1][0]*rp2[j][1]+fjm[1][1]*rp2[j][0];
+      cp2[j][0]=fjm[2][0]*rp1[j][0]-fjm[2][1]*rp1[j][1]+fjm[3][0]*rp2[j][0]-fjm[3][1]*rp2[j][1];
+      cp2[j][1]=fjm[2][0]*rp1[j][1]+fjm[2][1]*rp1[j][0]+fjm[3][0]*rp2[j][1]+fjm[3][1]*rp2[j][0];
     }
 
     // Write
     fwrite(cp1,sizeof(fftwf_complex),fbout.nchan,outfile);
     fwrite(cp2,sizeof(fftwf_complex),fbout.nchan,outfile);
   } 
-  */
+  
 
   // Close
   fclose(infile);
@@ -198,6 +240,7 @@ int main(int argc,char *argv[])
   fftwf_free(cp1);
   fftwf_free(cp2);
   free(jm);
+  free(fjm);
 
   return 0;
 }
