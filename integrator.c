@@ -15,7 +15,7 @@
 int main(int argc,char *argv[])
 {
   int arg=0;
-  int *bincount,i,j,elno,nel,nsamp=128,nbin=128;
+  int *bincount,binno,i,j,elno,nel,nsamp=128,nbin=128;
   float *bincount_float;
   // FFT in each 'polarisation' (acquired from correlator), and integrated, folded FFTs to output (complex, nchan frequency channels, subints of nsamp samples each, nbin profile bins where nbin==1 for a calibrator)
   fftwf_complex *rp1,*rp2,*rp3,*rp4,*rp5,*rp6,*rp7,*rp8,*ip1,*ip2,*ip3,*ip4,*ip5,*ip6,*ip7,*ip8;
