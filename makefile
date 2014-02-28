@@ -31,8 +31,14 @@ reader: reader.o dada.o lib/delays.o
 dada_reader_nodelay: dada_reader_nodelay.o dada.o
 	$(CC) -o dada_reader_nodelay dada_reader_nodelay.o dada.o $(LFLAGS)
 
-integrator: integrator.o
-	$(CC) -o integrator integrator.o $(LFLAGS)
+integrator: integrator.o predict.c ppolyco.c mpolyco.c cldj.f djcl.f
+	$(CC) -c cldj.f
+	$(CC) -c djcl.f
+	$(CC) -c predict.c
+	$(CC) -o integrator integrator.o predict.o cldj.o djcl.o $(LFLAGS)
+
+cldj.o:	cldj.f
+	$(CC) -c cldj.f
 
 simple_integrator: simple_integrator.o
 	$(CC) -o simple_integrator simple_integrator.o $(LFLAGS)
