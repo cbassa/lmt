@@ -1,23 +1,87 @@
-#include <stdio.h>
+nclude <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
 #include <getopt.h>
+#include <fftw3.h>
 
 
 #define LIM 256
 
-//function prototypes
-double *jmcalculator (double freq, double *array, int freqsno);
+// STRUCTS
+// The struct that contains the Jones matrices; frequency and the Jones matrix in complex numbers
 
-int main(int argc,char *argv[])
-{  
- int arg=0;
- int count1,jmfnofreq;
+struct jones {
+  float freq;
+  fftwf_complex a[4];
+};
+
+
+
+//FUNCTIONS
+
+//The function that computes the Jones matrix for a specific frequency. Its input are 
+//"frequency, the Jones matrix array from the input file, the number of frequencies it includes"
+struct jones jmcalculator (float freq, struct jones *fjones, int njones){
+       
+ int counter=0,i,j; // counter is the counter that will give the frequency just above obsfreq
+ struct jones jonesm;
+       
+ if(freq<fjones[0].freq)
+    {
+    fprintf(stderr,"The observation frequency is lower than the minimum frequency in the Jones matrix... Exiting\n");
+    exit;                      
+    }  
+  else if(freq>fjones[njones-1].freq)
+    {
+    fprintf(stderr,"The observation frequency is higher than the maximum frequency in the Jones matrix... Exiting\n");
+    exit;                      
+    }  
+  else
+    {
+    while(fjones[counter].freq<freq){counter++;}                           
+    }
+
+ //computing the Jones matrix, jonesm, that will be used for obsfreq. Usage of linear interpolation
+ jonesm.freq=freq;
+ 
+ for(i=0;i<4;i++) {
+        for(j=0;j<2;j++)
+        jonesm.a[i][j]=((fjones[counter].a[i][j]-fjones[counter-1].a[i][j])/(fjones[counter].freq-fjones[counter-1].freq))*(freq-fjones[counter-1].freq)+fjones[counter-1].a[i][j];                  
+ }
+ 
+    return jonesm;
+}
+
+
+
+// Read a line of maximum length int lim from file FILE into string s
+int fgetline(FILE *file,char *s,int lim)
+{
+  int c,i=0;
+
+  while (--lim > 0 && (c=fgetc(file)) != EOF && c != '\n')
+    s[i++] = c;
+  if (c == '\t')
+    c=' ';
+  if (c == '\n')
+    s[i++] = c;
+  s[i] = '\0';
+  return i;
+}
+
+//==================================================================================
+// MAIN
+
+int main(int argc,char *argv[]) {
+  
+ int i,arg=0;
+ int njones;
  FILE *jonesfile;
- char jonesfname[LIM];
- double *jonesarr,temp,obsfreq,*jmatrix;
+ char jonesfname[LIM],line[LIM];
+ float obsfreq;
+ struct jones *jm,teststruct;
  
 
  //getting the parameters from the command line
@@ -43,71 +107,63 @@ int main(int argc,char *argv[])
     exit;
  }
  
- //Reading the jones matrix file
- count1=0;   //count1 is the counter of the Jones matrix file elements
- jonesarr=malloc(sizeof(double));
- while(fscanf(jonesfile,"%le",&temp)!=EOF)
-    {         
-    jonesarr=realloc(jonesarr,(count1+1)*sizeof(double));
-    jonesarr[count1]=temp;
-    //printf("it is %.7le\n",jonesarr[count1]);
-    count1++;
-    }
+ // Count elements in polcal file
+  i=0;
+  while (fgetline(jonesfile,line,LIM)>0) 
+    i++;
+  rewind(jonesfile);
+  njones=i;
  
- //the number of frequencies in the Jones matrix file
- jmfnofreq=count1/9;
+ // Allocate the memory for all the jones matrices retrieved from the file
+  jm=(struct jones *) malloc(sizeof(struct jones)*njones);
+ 
+  // Read jones matrices
   
+  for (i=0;i<njones;i++) {
+    fgetline(jonesfile,line,LIM);
+    sscanf(line,"%f %e %e %e %e %e %e %e %e",&jm[i].freq,
+	   &jm[i].a[0][0],
+	   &jm[i].a[0][1],
+	   &jm[i].a[1][0],
+	   &jm[i].a[1][1],
+	   &jm[i].a[2][0],
+	   &jm[i].a[2][1],
+	   &jm[i].a[3][0],
+	   &jm[i].a[3][1]);
+  }
+  
+  //Closing the jonesfile
+  fclose(jonesfile);
+ 
  //the frequency of the obs
  obsfreq=1459.;
 
+
+ teststruct=jmcalculator(obsfreq,jm,njones);
+ printf("tester 1 is %f\n",teststruct.freq);
+ printf("tester 1 is %e\n",teststruct.a[0][0]);
+ printf("tester 1 is %e\n",teststruct.a[0][1]);
+ printf("tester 1 is %e\n",teststruct.a[1][0]);
+ printf("tester 1 is %e\n",teststruct.a[1][1]);
+ printf("tester 1 is %e\n",teststruct.a[2][0]);
+ printf("tester 1 is %e\n",teststruct.a[2][1]);
+ printf("tester 1 is %e\n",teststruct.a[3][0]);
+ printf("tester 1 is %e\n",teststruct.a[3][1]);
  //computing the requested Jones matrix
- jmatrix=malloc(7*sizeof(double));
- jmatrix=jmcalculator(obsfreq,jonesarr,jmfnofreq);
  
+ //jmatrix=jmcalculator(obsfreq,jonesarr,njones);
+
+ //int w;
+ //for(w=0;w<8;w++){printf("the element is %le\n",jmatrix[w]);} 
  // free memory blocks
- free (jonesarr);
- free (jmatrix);
+// free (jonesarr);
+ 
  
  //close files
- close (jonesfile);
+ 
+ printf("Everything works\n") ;
  
  system("PAUSE");
  return 0;   
     
-}
-
-//FUNCTIONS
-
-//the function that computes the Jones matrix for a specific frequency. Its input are 
-//"frequency, the Jones matrix array from the input file, the number of frequencies it includes"
-double *jmcalculator (double freq, double *array, int freqsno){
-       
- int countfun1=0,i; // count2 is the counter that will give the frequency just above obsfreq
- double freqb1,freqb2;
- static double jonesm[7];
-       
- if(freq<array[0])
-    {
-    fprintf(stderr,"The observation frequency is lower than the minimum frequency in the Jones matrix... Exiting\n");
-    exit;                      
-    }  
-  else if(freq>array[(freqsno-1)*9])
-    {
-    fprintf(stderr,"The observation frequency is higher than the maximum frequency in the Jones matrix... Exiting\n");
-    exit;                      
-    }  
-  else
-    {
-    while(array[countfun1*9]<freq){countfun1++;}                           
-    }
-    
- freqb1=array[9*(countfun1-1)];
- freqb2=array[9*countfun1];
-
- //computing the Jones matrix, jonesm, that will be used for obsfreq. Usage of linear interpolation
- for(i=0;i<8;i++)
-    {
-    jonesm[i]=((array[countfun1*9+1+i]-array[(countfun1-1)*9+1+i])/(freqb2-freqb1))*(freq-freqb1)+array[(countfun1-1)*9+1+i]; 
-    }
-    return jonesm;
 }
