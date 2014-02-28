@@ -15,8 +15,10 @@
 int main(int argc,char *argv[])
 {
   int arg=0;
-  int *bincount,binno,i,j,elno,nel,nsamp=128,nbin=128;
-  float *bincount_float;
+  int *bintally,binno,sampcount,i,j,nel,nsamp=128,nbin=128;
+  float *bintally_float;
+  // Pulsar phase as fraction of a rotation, pulsar phase as bin number, pulsar period in seconds and sampling interval in bins
+  double phase_start,bin_start,period_start,tsamp_bins;
   // FFT in each 'polarisation' (acquired from correlator), and integrated, folded FFTs to output (complex, nchan frequency channels, subints of nsamp samples each, nbin profile bins where nbin==1 for a calibrator)
   fftwf_complex *rp1,*rp2,*rp3,*rp4,*rp5,*rp6,*rp7,*rp8,*ip1,*ip2,*ip3,*ip4,*ip5,*ip6,*ip7,*ip8;
   // File names (these may be FIFOs or actual files)
@@ -99,8 +101,8 @@ int main(int argc,char *argv[])
   fwrite(&fbout,1,sizeof(struct filterbank),outfile);
 
   // Allocate buffers
-  bincount=malloc(sizeof(int)*nbin);
-  bincount_float=malloc(sizeof(float)*nbin);
+  bintally=malloc(sizeof(int)*nbin);
+  bintally_float=malloc(sizeof(float)*nbin);
   rp1=fftwf_malloc(sizeof(fftwf_complex)*fbin.nchan);
   rp2=fftwf_malloc(sizeof(fftwf_complex)*fbin.nchan);
   rp3=fftwf_malloc(sizeof(fftwf_complex)*fbin.nchan);
@@ -118,11 +120,27 @@ int main(int argc,char *argv[])
   ip7=fftwf_malloc(sizeof(fftwf_complex)*nel);
   ip8=fftwf_malloc(sizeof(fftwf_complex)*nel);
 
+  if (nbin>1) {
+    // Get pulsar phase and period at initial MJD of dada file using a par file, so we know which phase bins to fold samples into (converted integer part of MJD into an int because it is passed in as an unsigned int; telescope site is currently hardwired to "h" for Effelsberg)
+    predict((int)fbin.intmjd,fbin.mjd_start-(double)fbin.intmjd,fbin.source+1,"h",&phase_start,&period_start);
+    // Get bin number at initial MJD of dada file
+    bin_start=(double)nbin*phase_start;
+    // Get sampling interval in units of bins
+    tsamp_bins=(double)nbin*fbin.tsamp/period_start;
+  }
+  // Don't look for pulsar phase and period if nbin=1 (generally for calibrators)
+  else {
+    bin_start=0;
+    tsamp_bins=1;
+  }
+
+  // Count of total samples processed
+  sampcount=0;
   // Read buffers up to the end
   for (;;) {
     // Reset buffers
     for (j=0;j<nbin;j++)
-      bincount[j]=0;
+      bintally[j]=0;
     for (j=0;j<nel;j++) {
       ip1[j][0]=0.0;
       ip1[j][1]=0.0;
@@ -144,10 +162,11 @@ int main(int argc,char *argv[])
 
     // Accumulate for each subint (and fold if necessary) by reading FFT data from input file (or from another module if using FIFOs)
     for (i=0;i<nsamp;i++) {
-      // Profile bin into which each value must be folded (NEEDS CHANGING TO FIND BINNO USING PREDICT)
-      binno=0;
+      // Profile bin into which each value must be folded (the first part of the calculation gives a bin number including fractional part, but the floor function rounds this down to an integer, before the modulo operator is applied to give the remainder from division by nbin; so bin 0, for example, is home to everything from 0<=bin<1, rather than, say, -0.5<=bin<0.5)
+      binno=floor((double)sampcount*tsamp_bins+bin_start);
+      binno%=nbin;
       // Keep track of number of values going into each bin
-      bincount[binno]++;
+      bintally[binno]++;
       // Read data
       bytes_read=fread(rp1,sizeof(fftwf_complex),fbin.nchan,infile);
       bytes_read=fread(rp2,sizeof(fftwf_complex),fbin.nchan,infile);
@@ -159,26 +178,28 @@ int main(int argc,char *argv[])
       bytes_read=fread(rp8,sizeof(fftwf_complex),fbin.nchan,infile);
 
       // Fold subint for each channel and polarisation
-      for (j=0,elno=binno;j<fbin.nchan;j++) {
+      for (j=0;j<fbin.nchan;j++) {
 	// Bins becomes the first dimension in packing, before channels, polarisations and time
-	ip1[elno][0]+=rp1[j][0];
-	ip1[elno][1]+=rp1[j][1];
-	ip2[elno][0]+=rp2[j][0];
-	ip2[elno][1]+=rp2[j][1];
-	ip3[elno][0]+=rp3[j][0];
-	ip3[elno][1]+=rp3[j][1];
-	ip4[elno][0]+=rp4[j][0];
-	ip4[elno][1]+=rp4[j][1];
-	ip5[elno][0]+=rp5[j][0];
-	ip5[elno][1]+=rp5[j][1];
-	ip6[elno][0]+=rp6[j][0];
-	ip6[elno][1]+=rp6[j][1];
-	ip7[elno][0]+=rp7[j][0];
-	ip7[elno][1]+=rp7[j][1];
-	ip8[elno][0]+=rp8[j][0];
-	ip8[elno][1]+=rp8[j][1];
+	ip1[binno][0]+=rp1[j][0];
+	ip1[binno][1]+=rp1[j][1];
+	ip2[binno][0]+=rp2[j][0];
+	ip2[binno][1]+=rp2[j][1];
+	ip3[binno][0]+=rp3[j][0];
+	ip3[binno][1]+=rp3[j][1];
+	ip4[binno][0]+=rp4[j][0];
+	ip4[binno][1]+=rp4[j][1];
+	ip5[binno][0]+=rp5[j][0];
+	ip5[binno][1]+=rp5[j][1];
+	ip6[binno][0]+=rp6[j][0];
+	ip6[binno][1]+=rp6[j][1];
+	ip7[binno][0]+=rp7[j][0];
+	ip7[binno][1]+=rp7[j][1];
+	ip8[binno][0]+=rp8[j][0];
+	ip8[binno][1]+=rp8[j][1];
 	binno+=nbin;
       }
+      // Move sample number along
+      sampcount++;
     }
 
     // Exit when buffer is empty (WARNING: this could go off the end of the file with an incomplete subint)
@@ -186,27 +207,27 @@ int main(int argc,char *argv[])
       break;
 
     for(i=0;i<=nbin;i++)
-      bincount_float[i]=(float)bincount[i];
+      bintally_float[i]=(float)bintally[i];
     // Within each bin, scale bins by a factor of the number of samples in that bin
-    for (j=0,elno=0;j<fbin.nchan;j++) {
+    for (j=0,binno=0;j<fbin.nchan;j++) {
       for (i=0;i<nbin;i++) {
-	ip1[elno][0]/=bincount_float[i];
-	ip1[elno][1]/=bincount_float[i];
-	ip2[elno][0]/=bincount_float[i];
-	ip2[elno][1]/=bincount_float[i];
-	ip3[elno][0]/=bincount_float[i];
-	ip3[elno][1]/=bincount_float[i];
-	ip4[elno][0]/=bincount_float[i];
-	ip4[elno][1]/=bincount_float[i];
-	ip5[elno][0]/=bincount_float[i];
-	ip5[elno][1]/=bincount_float[i];
-	ip6[elno][0]/=bincount_float[i];
-	ip6[elno][1]/=bincount_float[i];
-	ip7[elno][0]/=bincount_float[i];
-	ip7[elno][1]/=bincount_float[i];
-	ip8[elno][0]/=bincount_float[i];
-	ip8[elno][1]/=bincount_float[i];
-	elno++;
+	ip1[binno][0]/=bintally_float[i];
+	ip1[binno][1]/=bintally_float[i];
+	ip2[binno][0]/=bintally_float[i];
+	ip2[binno][1]/=bintally_float[i];
+	ip3[binno][0]/=bintally_float[i];
+	ip3[binno][1]/=bintally_float[i];
+	ip4[binno][0]/=bintally_float[i];
+	ip4[binno][1]/=bintally_float[i];
+	ip5[binno][0]/=bintally_float[i];
+	ip5[binno][1]/=bintally_float[i];
+	ip6[binno][0]/=bintally_float[i];
+	ip6[binno][1]/=bintally_float[i];
+	ip7[binno][0]/=bintally_float[i];
+	ip7[binno][1]/=bintally_float[i];
+	ip8[binno][0]/=bintally_float[i];
+	ip8[binno][1]/=bintally_float[i];
+	binno++;
       }
     }
 
