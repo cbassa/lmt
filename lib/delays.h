@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+//#include "timeseries.h"
 
 #define MaxChars 999
 #define CALCSTEPSIZE 120
@@ -35,6 +36,7 @@ typedef struct{
   float frac_delay_pol2;
   float phase_offset_pol1;
   float phase_offset_pol2;
+  float fringe_drift;
 } delays_type;
 
 FILE* Sopen(char *Fin, char *how);

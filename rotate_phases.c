@@ -11,7 +11,8 @@
 
 void Usage()
 {
-  printf("Usage: reader -i <input file> -o <output file> [-b <blocksize> (64000)] -c <calcfile> -f <\"fracdelay_pol1 fracdelay_pol2\"> -p <\"phaseoffset_pol1 phaseoffset_pol2\">\n");
+  printf("Usage: reader -i <input file> -o <output file> [-b <blocksize> (64000)] -c <calcfile> -f <\"fracdelay_pol1 fracdelay_pol2\"> 
+-p <\"phaseoffset_pol1 phaseoffset_pol2\"> -d <fringedrift>\n"); 
 }
 
 int main(int argc,char *argv[])
@@ -54,14 +55,19 @@ int main(int argc,char *argv[])
 
       // Get fractional delays for pol1 and pol2 
     case 'f':
-      sprintf(optarg, "%f %f\n", &phases.frac_delay_pol1, &phases.frac_delay_pol1);
+      sprintf(optarg, "%f %f\n", &delays.frac_delay_pol1, &delays.frac_delay_pol1);
       fset=1;
       break;
 
       // Get phase offsets for pol1 and pol2 
     case 'p':
-      sprintf(optarg, "%f %f\n", &phases.phase_offset_pol1, &phases.phase_offset_pol2);
+      sprintf(optarg, "%f %f\n", &delays.phase_offset_pol1, &delays.phase_offset_pol2);
       pset=1;
+      break;
+
+    case 'd':
+      sprintf(optarg, "%f\n", &delays.fringedrift);
+      dset=1;
       break;
 
     default:
@@ -75,6 +81,7 @@ int main(int argc,char *argv[])
   if (!cset){ fprintf(stderr, "Please provide calcfilename with -c\n"); Usage(); exit(0);}
   if (!fset){ fprintf(stderr, "Please provide fraction delays with -f\n"); Usage(); exit(0);}
   if (!pset){ fprintf(stderr, "Please provide phase offsets with -p\n"); Usage(); exit(0);}
+  if (!dset){ fprintf(stderr, "Please provide fringedrift with -d\n"); Usage(); exit(0);}
 
   // Open input file
   infile=fopen(infname,"r");
