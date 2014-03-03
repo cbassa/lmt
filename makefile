@@ -11,10 +11,13 @@ CC = gcc
 F77 = gfortran
 
 all: 
-	make reader channelizer integrator filwriter donothing_fb dada_reader_nodelay dechannelizer dada_writer digitizer simple_integrator plotter
+	make reader channelizer integrator filwriter donothing_fb dada_reader_nodelay dechannelizer dada_writer digitizer integrator simple_integrator plotter map
 
 plotter: plotter.o
 	$(F77) -o plotter plotter.o $(LFLAGS) $(LPGFLAGS)
+
+map: map.o
+	$(CC) -o map map.o $(LFLAGS)
 
 donothing_fb: donothing_fb.o
 	$(CC) -o donothing_fb donothing_fb.o $(LFLAGS)
@@ -28,8 +31,11 @@ reader: reader.o dada.o lib/delays.o
 dada_reader_nodelay: dada_reader_nodelay.o dada.o
 	$(CC) -o dada_reader_nodelay dada_reader_nodelay.o dada.o $(LFLAGS)
 
-integrator: integrator.o
-	$(CC) -o integrator integrator.o $(LFLAGS)
+integrator: integrator.o predict.c ppolyco.c mpolyco.c cldj.f djcl.f
+	$(CC) -c cldj.f
+	$(CC) -c djcl.f
+	$(CC) -c predict.c
+	$(CC) -o integrator integrator.o predict.o cldj.o djcl.o $(LFLAGS)
 
 simple_integrator: simple_integrator.o
 	$(CC) -o simple_integrator simple_integrator.o $(LFLAGS)
