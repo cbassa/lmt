@@ -161,13 +161,14 @@ double GetTimedelay(delays_type *delays, calc_type *Calc, double samptime, long 
   timedelay += delays->geoshifted*samptime; // subtract bins that are already shifted
   return timedelay; // in s
 }
-
+/*
 // Calculate the fringerotation
 // time is the time from the start of the calcfile to now in seconds
 // timedelay is in s
-double GetFringeRotation(int N, delays_type delays, struct timeseries hdr, int freqcounter, double timedelay, calc_type *Calc, hdrdouble time, double samptime, int iscomplex, int Pol)
+double GetFringeRotation(int NFreq, delays_type delays, struct timeseries hdr, int freqcounter, double timedelay, calc_type *Calc, double time, double samptime, int Pol)
 {
   double FringeRotation, fracdelay, phaseoffset;
+  float lowerfreq;
   if (Pol==0) {
     fracdelay = delays->frac_delay_pol1;   // in s / BW
     phaseoffset = delays->phase_offset_pol1; // in radians
@@ -177,22 +178,22 @@ double GetFringeRotation(int N, delays_type delays, struct timeseries hdr, int f
     phaseoffset = delays->phase_offset_pol2; // in radians
   }
   
+  lowerfreq = hdr->freq-hdr->bw/2;
   // Correct for Fringerotation due to binshifting the clockoffset and geometric delay
-  if (!hdr.idim) // if complex
-    FringeRotation = -2*PI*(delays->samplesshifted - (timedelay+fracdelay)/samptime) * hdr.freq / hdr.bw;
+  if (!hdr->idim) // if complex
+    FringeRotation = -2*PI*(delays->samplesshifted - (timedelay+fracdelay)/samptime) * hdr->freq / hdr->bw_org;
   else
-    FringeRotation = -2*PI*(delays->samplesshifted - (timedelay+fracdelay)/samptime) * (hdr.freq-hdr.bw/2) / hdr.bw;
+    FringeRotation = -2*PI*(delays->samplesshifted - (timedelay+fracdelay)/samptime) * lowerfreq / hdr->bw_org;
   
   // Add correction for the Fractional Sample Error Correction + atmospheric delay
-  if (!hdr.idim) // if complex
-    FringeRotation += 2*PI*(timedelay+fracdelay)*((freqcounter-N/2)/(float)N*Fileinfo->BWCorr) + phaseoffset - time * Fileinfo->FringeDrift[Telescope] - time * Fileinfo->ClockDrift[Telescope] * 
-      ((freqcounter-N/2)/(float)N*Fileinfo->BWCorr + Fileinfo->Freqinfo[Telescope].LowerFreqBand[0]) * 2*PI;
+  if (!hdr->idim) // if complex
+    FringeRotation += 2*PI*(timedelay+fracdelay)*((freqcounter-NFreq/2)/(float)NFreq*hdr->bw) + phaseoffset - time * delays->fringedrift;
   else
-    FringeRotation += 2*PI*(timedelay+fracdelay)*(freqcounter/(float)N*Fileinfo->BWCorr) + phaseoffset - time * Fileinfo->FringeDrift[Telescope] - time * Fileinfo->ClockDrift[Telescope] * 
-      (freqcounter/(float)N*Fileinfo->BWCorr + Fileinfo->Freqinfo[Telescope].LowerFreqBand[0]) * 2*PI;
+    FringeRotation += 2*PI*(timedelay+fracdelay)*(freqcounter/(float)NFreq*hdr->bw) + phaseoffset - time * delays->fringedrift;
   
   return fmod(FringeRotation, 2*PI);
 }
+*/
 
 // Add delays from geometry to Skipsamples, Samplesshifted and GeoShifted
 // startgeooffset is in ns
