@@ -204,7 +204,7 @@ int main(int argc,char *argv[])
       obsfreq=fbin.freq+fbin.bw*(float)i/(float)(fbin.nchan-1)-0.5*fbin.bw;
       fjm[i]=jmcalculator(obsfreq,jm,njones);                          
   }
-  printf("Commencing infinite loop");
+  
         
   // Loop over file contents
   for (;;) {
@@ -215,6 +215,8 @@ int main(int argc,char *argv[])
     // Exit when buffer is empty
     if (bytes_read==0)
       break;
+   
+   printf("Applying the Jones matrices to the frequency channels...\n");
      
     // Copy
     for (j=0;j<fbin.nchan;j++) {
