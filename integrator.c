@@ -82,20 +82,20 @@ int main(int argc,char *argv[])
   strcpy(fbout.telescope,fbin.telescope);
   strcpy(fbout.instrument,fbin.instrument);
   fbout.freq=fbin.freq;
-  fbout.bw=fbin.bw;
+  fbout.bw=fbin.bw; // This should be nchan*fsamp, presumably...?
   fbout.npol=fbin.npol; // Retain all polarisation channels
-  fbout.nbit=fbin.nbit; // Floats
-  fbout.ndim=fbin.ndim; // Should be complex output
+  fbout.nbit=fbin.nbit; // Number of bits per value (size of float)
+  fbout.ndim=fbin.ndim; // Should be complex input
   fbout.nchan=fbin.nchan; // Number of channels
-  fbout.fsamp=fbin.fsamp; // Channelsize
+  fbout.fsamp=fbin.fsamp; // Channel size
   fbout.tsamp=fbin.tsamp*nsamp; // Updated sample size
 
   // Number of complex elements in each rp and ip array
   nel=fbout.nchan*nbin;
 
   // Print information
-  printf("Integrator: integrating %d spectra, %g us sampling\n",nsamp,fbout.tsamp*1e6);
-  printf("Integrator: converting to %d polarizations, %d bit\n",fbout.npol,fbout.nbit);
+  printf("Integrator: integrating %d spectra, giving %g us sampling\n",nsamp,fbout.tsamp*1e6);
+  printf("Integrator: converting to %d polarizations, %d bit\n",fbout.npol,fbout.nbit); // Currently these values don't change from input to output
 
   // Write header struct
   fwrite(&fbout,1,sizeof(struct filterbank),outfile);
@@ -263,6 +263,8 @@ int main(int argc,char *argv[])
   free(ip6);
   free(ip7);
   free(ip8);
+  free(bintally);
+  free(bintally_float);
 
   return 0;
 }
