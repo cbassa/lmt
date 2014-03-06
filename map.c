@@ -204,7 +204,7 @@ int main(int argc,char *argv[])
       obsfreq=fbin.freq+fbin.bw*(float)i/(float)(fbin.nchan-1)-0.5*fbin.bw;
       fjm[i]=jmcalculator(obsfreq,jm,njones);                          
   }
-  
+  printf("Applying Jones matrices in frequency channels...\n");
         
   // Loop over file contents
   for (;;) {
@@ -215,13 +215,11 @@ int main(int argc,char *argv[])
     // Exit when buffer is empty
     if (bytes_read==0)
       break;
-   
-   printf("Applying the Jones matrices to the frequency channels...\n");
      
     // Copy
     for (j=0;j<fbin.nchan;j++) {
       cp1[j][0]=fjm[j].a[0][0]*rp1[j][0]-fjm[j].a[0][1]*rp1[j][1]+fjm[j].a[1][0]*rp2[j][0]-fjm[j].a[1][1]*rp2[j][1];
-      cp1[j][1]=fjm[j].a[0][1]*rp1[j][0]+fjm[j].a[0][0]*rp1[j][1]+fjm[j].a[1][0]*rp2[j][1]+fjm[j].a[1][1]*rp2[j][0];
+      cp1[j][1]=fjm[j].a[0][0]*rp1[j][1]+fjm[j].a[0][1]*rp1[j][0]+fjm[j].a[1][0]*rp2[j][1]+fjm[j].a[1][1]*rp2[j][0];
       cp2[j][0]=fjm[j].a[2][0]*rp1[j][0]-fjm[j].a[2][1]*rp1[j][1]+fjm[j].a[3][0]*rp2[j][0]-fjm[j].a[3][1]*rp2[j][1];
       cp2[j][1]=fjm[j].a[2][0]*rp1[j][1]+fjm[j].a[2][1]*rp1[j][0]+fjm[j].a[3][0]*rp2[j][1]+fjm[j].a[3][1]*rp2[j][0];
     }
