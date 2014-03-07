@@ -10,7 +10,7 @@
 // File name character limit
 #define LIM 256
 
-// This module integrates. To do: integrate calibrator and pulsar (correlate==2) to include folding, like an archive. predict routine gets period. nbins is passed in. addtovis adds. Normalise by number of samples in each bin. Calibrator option.
+// This module integrates. predict routine gets period. nbins is passed in. addtovis adds in lcorr. Calibrator option?
 
 int main(int argc,char *argv[])
 {
@@ -22,13 +22,13 @@ int main(int argc,char *argv[])
   // FFT in each 'polarisation' (acquired from correlator), and integrated, folded FFTs to output (complex, nchan frequency channels, subints of nsamp samples each, nbin profile bins where nbin==1 for a calibrator)
   fftwf_complex *rp1,*rp2,*rp3,*rp4,*rp5,*rp6,*rp7,*rp8,*ip1,*ip2,*ip3,*ip4,*ip5,*ip6,*ip7,*ip8;
   // File names (these may be FIFOs or actual files)
-  FILE *infile,*outfile;
-  char infname[LIM],outfname[LIM];
+  FILE *infile,*outfile,*parfile;
+  char infname[LIM],outfname[LIM],parfname[LIM];
   int bytes_read;
   struct filterbank fbin,fbout;
 
-  // Decode options: i=input file name, o=output file name, t=number of samples per subint (default is preset above), b=number of bins in a folded profile (default is preset above)
-  while ((arg=getopt(argc,argv,"i:o:t:b:"))!=-1) {
+  // Decode options: i=input file name, o=output file name, p=parfile name, t=number of samples per subint (default is preset above), b=number of bins in a folded profile (default is preset above)
+  while ((arg=getopt(argc,argv,"i:o:p:t:b:"))!=-1) {
     switch (arg) {
 
     case 'i':
@@ -37,6 +37,10 @@ int main(int argc,char *argv[])
 
     case 'o':
       strcpy(outfname,optarg);
+      break;
+
+    case 'p':
+      strcpy(parfname,optarg);
       break;
 
     case 't':
@@ -59,6 +63,15 @@ int main(int argc,char *argv[])
   // Check if input file exists
   if (infile==NULL) {
     fprintf(stderr,"Error opening %s\n",infname);
+    exit;
+  }
+
+  // Open par file
+  parfile=fopen(parfname,"r");
+
+  // Check if par file exists
+  if (parfile==NULL) {
+    fprintf(stderr,"Error opening %s\n",parfname);
     exit;
   }
 
@@ -121,8 +134,8 @@ int main(int argc,char *argv[])
   ip8=fftwf_malloc(sizeof(fftwf_complex)*nel);
 
   if (nbin>1) {
-    // Get pulsar phase and period at initial MJD of dada file using a par file, so we know which phase bins to fold samples into (converted integer part of MJD into an int because it is passed in as an unsigned int; telescope site is currently hardwired to "h" for Effelsberg)
-    predict((int)fbin.intmjd,fbin.mjd_start-(double)fbin.intmjd,fbin.source+1,"h",&phase_start,&period_start);
+    // Get pulsar phase and period at initial MJD of dada file using a par file, so we know which phase bins to fold samples into (converted integer part of MJD into an int because it is passed in as an unsigned int; telescope site is currently hardwired to "h" for Effelsberg; source name is passed without initial B or J; parfname is relative path to par file, including directory structure and par file name)
+    predict((int)fbin.intmjd,fbin.mjd_start-(double)fbin.intmjd,fbin.source+1,parfname,"h",&phase_start,&period_start);
     // Get bin number at initial MJD of dada file
     bin_start=(double)nbin*phase_start;
     // Get sampling interval in units of bins

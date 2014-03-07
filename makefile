@@ -3,6 +3,7 @@ CFLAGS = -O3 -I/home/leap/linux/include
 
 # Linking flags
 LFLAGS = -lm -L/home/leap/linux/lib -lfftw3f
+GSLFLAGS = -lgsl -lgslcblas
 LPGFLAGS = -lcpgplot -lpgplot -lX11 -lpng
 
 
@@ -15,6 +16,9 @@ all:
 
 plotter: plotter.o
 	$(F77) -o plotter plotter.o $(LFLAGS) $(LPGFLAGS)
+
+skrfi: skrfi.o
+	$(CC) -o skrfi skrfi.o $(LFLAGS) $(GSLFLAGS)
 
 correlator: correlator.o
 	$(CC) -o correlator correlator.o $(LFLAGS)

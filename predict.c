@@ -37,7 +37,7 @@ void usage(int status)
 
 int verb1,verb2,verb3,verb4;
 
-void predict(int intmjd, double fracmjd, char *psr, char site[2], double *phase, double *period)
+void predict(int intmjd, double fracmjd, char *psr, char *parfname, char site[2], double *phase, double *period)
 {
   int    coeff_set,day,err,hour,i,min,month,ncoeff,nlen,nspan,site_set,span_set,ut_set,year;
   float  sec;
@@ -67,7 +67,9 @@ void predict(int intmjd, double fracmjd, char *psr, char site[2], double *phase,
   hour = floor(24 * fracmjd);
   min  = floor(60 * ((fracmjd * 24) - hour));
   sec  = floor(60 * ((60 * ((24 * fracmjd) - hour)) - min));
-  mpolyco(unfname,psrname,intmjd,fracmjd,site,&nspan,&ncoeff);
+  // Use tempo2 to make a polyco based on the par file given by parfname
+  mpolyco_t2(unfname,psrname,intmjd,fracmjd,site,&nspan,&ncoeff,parfname);
+  // Calculate pulsar period and phase from the polyco
   ppolyco(unfname,intmjd,fracmjd,&midpobs,&refph);
   mjd = intmjd + fracmjd;
   *phase = refph-(long)refph;
