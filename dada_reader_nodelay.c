@@ -16,9 +16,11 @@ int main(int argc,char *argv[])
   char *buffer;
   struct timeseries ts;
   unsigned int bytes_read,blocksize=64000;
+  double delay=0.0;
+  uint64_t samples_to_skip,bytes_to_skip;
 
   // Decode options
-  while ((arg=getopt(argc,argv,"i:o:b:"))!=-1) {
+  while ((arg=getopt(argc,argv,"i:o:b:t:"))!=-1) {
     switch (arg) {
 
     case 'i':
@@ -33,6 +35,10 @@ int main(int argc,char *argv[])
       blocksize=(unsigned int) atoi(optarg);
       break;
       
+    case 't':
+      delay=atof(optarg);
+      break;
+
     default:
       return 0;
 
@@ -60,6 +66,16 @@ int main(int argc,char *argv[])
   // Read header
   ts=read_dada_header(infile);
 
+  // Compute sample delay
+  samples_to_skip=(uint64_t) (delay*ts.samples_per_second);
+  bytes_to_skip=samples_to_skip*ts.bytes_per_sample;
+
+  // Increment obs_offset
+  ts.obs_offset+=bytes_to_skip;
+
+  // Skip read
+  fseek(infile,bytes_to_skip,SEEK_CUR);
+
   // Write header struct
   fwrite(&ts,1,sizeof(struct timeseries),outfile);
 
@@ -67,6 +83,8 @@ int main(int argc,char *argv[])
   printf("Reader: %s with %s at %s\n",ts.source,ts.instrument,ts.telescope);
   printf("Reader: %s timeseries, %g us sampling, %d polarizations, %d bits\n",(ts.ndim==1 ? "real" : "complex"),ts.tsamp*1e6,ts.npol,ts.nbit);
   printf("Reader: %g MHz bandwidth at %g MHz center frequency\n",ts.bw,ts.freq);
+  if (delay>0.0)
+    printf("Reader: skipping %lf seconds (%Ld samples, %Ld bytes)\n",delay,samples_to_skip,bytes_to_skip);
 
   // Allocate buffer
   buffer=(char *) malloc(sizeof(char)*blocksize);

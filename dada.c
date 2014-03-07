@@ -158,7 +158,7 @@ struct timeseries read_dada_header(FILE *file)
   s.bytes_per_sample=s.nbit*s.npol*s.nchan*s.ndim/8;
 
   // Get samples per second
-  s.samples_per_second=(uint64_t) ceil(1.0/s.tsamp);
+  s.samples_per_second=(uint64_t) (1.0/s.tsamp);
 
   // Get bytes per second
   s.bytes_per_second=s.samples_per_second*s.bytes_per_sample;
