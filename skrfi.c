@@ -22,28 +22,23 @@ int main(int argc,char *argv[])
   int nskz=2048,nav=1; // e.g. 2048 and 1 (default values)
   // Options: 1/0 for per-channel detection or not; 1/0 to normalise summed power in each channel and each polarisation by total bandwidth power in that polarisation, or not (only applies to noscr option; using it may make you miss RFI, but is necessary if you have a very strong signal which has smooth time variation across nskz*nav*nchan time samples and which you want to let through); 1/0 for frequency-scrunched detection (across full bandwidth) or not
   int noscr=1,norm_noscr=0,fscr=0; // e.g. 1, 0 and 0 (default values)
-  // Probabilities of falsely excluding SK values from non-RFI signals, in terms of sigma; this is used to set SK thresholds, e.g. if sig=3.0 you will falsely exclude about 0.27% of good data; if you set sig low you will exclude more good data, but if you set sig high you may include more RFI
+  // Probabilities of falsely excluding SK values from non-RFI signals in channelised and frequency-scrunched data, in terms of sigma; this is used to set SK thresholds, e.g. if sig_noscr=3.0 you will falsely exclude about 0.27% of good data through channelised zapping; if you set sig_noscr or sig_fscr low you will exclude more good data, but if you set them high you may include more RFI
   float sig_noscr=3.0,sig_fscr=3.0; // e.g. 3.0 and 3.0 (default values)
-  // Shape of expected distribution of most SK values (e.g. 1.0 for standard exponential distribution)
+  // Shape of expected distribution of most SK values (e.g. 1.0 for standard exponential distribution, corresponding to power made from a complex value such as an FFT amplitude)
   float d=1.0;
 
-  int *k,count_chunk,count_noscr,count_fscr,i,j,l,buffersize,iav,ichan,ndim,bytes_read,nsamp,nav2,nskz_fscr,sk_lim_status;
-  char *header,*buffer,*mask,infname[LIM],outfname[LIM];
+  int *k,count_chunk,count_noscr,count_fscr,i,j,l,iav,nchan,ichan,ndim,bytes_read,nsamp,nav2,nskz_fscr,sk_lim_status;
+  char *mask,infname[LIM],outfname[LIM];
   fftwf_complex *rp1,*rp2; // Filterbank data
   FILE *infile,*outfile;
   float *pp1,*s1p1,*s2p1,*skp1,sk_lims[2],sk_lims_fscr[2],sk_bw,nchan_float,ppnosum,ppsum1_noscr,apn1,s1p1_fscr,s2p1_fscr,skp1_fscr,zap_noscr,zap_fscr,Nd;
   double bw,tsamp;
   struct filterbank fbin,fbout;
 
-  // Allocate
+  // Assign some useful values
   sk_bw=0;
-  nav2=nav*2;
+  nav2=nav*2; // nav is doubled because we are using total power made from two polarisations
   ppnosum=(float)nav2*(float)nskz;
-  buffersize=nchan*nav*nskz*4;
-  buffersize_power=nchan*nskz;
-  buffer=(char *) malloc(sizeof(char)*buffersize);
-  header=(char *) malloc(sizeof(char)*HEADERSIZE);
-  sprintf(end_str," ");
 
   // Decode options: i=input file name, o=output file name, b=desired masking frequency resolution, m=
   while ((arg=getopt(argc,argv,"i:o:b:m:n:c:s:r:f:g:"))!=-1) {
@@ -139,21 +134,21 @@ int main(int argc,char *argv[])
   //
   if (sk_bw>0)
   {
-
+    
   }
   else
   {
     sk_bw=fbin.fsamp;
     nchan=fbin.nchan;
   }
-  nchan_float=(float)fbin.nchan;
+  nchan_float=(float)nchan;
 
   if (noscr==1)
   {
     count_noscr=0;
-    s1p1=(float *) malloc(sizeof(float)*fbin.nchan);
-    s2p1=(float *) malloc(sizeof(float)*fbin.nchan);
-    skp1=(float *) malloc(sizeof(float)*fbin.nchan);
+    s1p1=(float *) malloc(sizeof(float)*nchan);
+    s2p1=(float *) malloc(sizeof(float)*nchan);
+    skp1=(float *) malloc(sizeof(float)*nchan);
     // Generate SK thresholds using sk_thresh5 function
     sk_lim_status=sk_thresh5(nav2,nskz,sig_noscr,d,sk_lims);
     printf("Non-scrunched thresholds: %f %f\n",sk_lims[0],sk_lims[1]);
@@ -165,7 +160,8 @@ int main(int argc,char *argv[])
   if (fscr==1)
   {
     count_fscr=0;
-    nskz_fscr=nskz*(fbin.nchan-1);
+    // Note that frequency-scrunched values come from the statistics of the set of power values in each channel (except channel 0) and at each time, rather than from a set of power values summed over the whole band at each time (hence the factor of nchan-1 below); the same is done if the requested frequency resolution of masking requires channels to be scrunched together - this is different to how the two polarisation channels are treated, where the power for each value is made from both polarisations summed together, rather than using a set containing values from each polarisation separately; the approach with frequency is to avoid losing sensitivity by averaging too many values together, while the approach with power is to diluting polarised RFI and making it more difficult to detect
+    nskz_fscr=nskz*(nchan-1);
     // Generate f-scrunched SK thresholds
     sk_lim_status=sk_thresh5(nav2,nskz_fscr,sig_fscr,d,sk_lims_fscr);
     printf("Frequency-scrunched thresholds: %f %f\n",sk_lims_fscr[0],sk_lims_fscr[1]);
@@ -184,7 +180,7 @@ int main(int argc,char *argv[])
 
     if (noscr==1)
     {
-      for (ichan=0;ichan<fbin.nchan;ichan++)
+      for (ichan=0;ichan<nchan;ichan++)
       {
 	s1p1[ichan]=0.0;
 	s2p1[ichan]=0.0;
@@ -200,7 +196,7 @@ int main(int argc,char *argv[])
       buffer_power[l]=0.0;
 
     // Loop over nskz blocks of nav summed FFTs in each polarisation
-    for (i=0,j=0,l=0;i<buffersize_power;i+=fbin.nchan)
+    for (i=0,j=0,l=0;i<buffersize_power;i+=nchan)
     {
       // Sum nav FFTs
       for (iav=0;iav<nav;iav++)
@@ -208,7 +204,7 @@ int main(int argc,char *argv[])
 	// Unpack time series buffer
 	if (ndim==2)
 	{
-	  for (ichan=0;ichan<fbin.nchan;ichan++)
+	  for (ichan=0;ichan<nchan;ichan++)
 	  {
 	    rp1[ichan][0]=(float)buffer[j];
 	    rp1[ichan][1]=(float)buffer[j+1];
@@ -231,7 +227,7 @@ int main(int argc,char *argv[])
 	fftwf_execute(ftp2);
 	
 	// Filterbank power calculated from FFTs (channel 0 is not included in the case of real time series)
-	for (ichan=1;ichan<fbin.nchan;ichan++)
+	for (ichan=1;ichan<nchan;ichan++)
 	  buffer_power[i+k[ichan]]+=cp1[ichan][0]*cp1[ichan][0]+cp1[ichan][1]*cp1[ichan][1]+cp2[ichan][0]*cp2[ichan][0]+cp2[ichan][1]*cp2[ichan][1];
       }
 	
@@ -241,11 +237,11 @@ int main(int argc,char *argv[])
 	// Normalise or don't normalise power in each channel of summed spectrum by total bandwidth power
 	if (norm_noscr==1)
 	{
-	  if (fbin.nchan!=1)
+	  if (nchan!=1)
 	  {
 	    ppsum1_noscr=0.0;
 	    // Note that channel 0 is excluded from total bandwidth power
-	    for (ichan=1;ichan<fbin.nchan;ichan++)
+	    for (ichan=1;ichan<nchan;ichan++)
 	      ppsum1_noscr+=buffer_power[i+k[ichan]];
 	  }
 	  else
@@ -260,7 +256,7 @@ int main(int argc,char *argv[])
 	  
 	// Compute values for spectral kurtosis
 	// Channel 0 not used here, as it is not generally comparable between real and complex time series
-	for (ichan=1;ichan<fbin.nchan;ichan++)
+	for (ichan=1;ichan<nchan;ichan++)
 	{
 	  apn1=buffer_power[i+k[ichan]]/ppsum1_noscr;
 	  s1p1[ichan]+=apn1;
@@ -270,9 +266,9 @@ int main(int argc,char *argv[])
       if (fscr==1)
       {
 	// Channel 0 not used here as it has a different distribution for real time series
-	for (ichan=1;ichan<fbin.nchan;ichan++)
+	for (ichan=1;ichan<nchan;ichan++)
 	{
-	  s1p1_fscr+=buffer_power[i+k[ichan]]/fbin.nchan_float/ppnosum;
+	  s1p1_fscr+=buffer_power[i+k[ichan]]/nchan_float/ppnosum;
 	  s2p1_fscr+=buffer_power[i+k[ichan]]*buffer_power[i+k[ichan]]/nchan_float/nchan_float/ppnosum/ppnosum;
 	}
       }
@@ -282,13 +278,13 @@ int main(int argc,char *argv[])
     {
       // Compute SK sums and make RFI masks (repacked, all values kept for one plot)
       // RFI detection not implemented in channel 0 as it is not generally comparable between real and complex time series; also not implemented in channel nchan, which exists for real time series only
-      for (ichan=1;ichan<fbin.nchan;ichan++)
+      for (ichan=1;ichan<nchan;ichan++)
       {
 	skp1[ichan]=(nskz*Nd+1.0)/(nskz-1.0)*(nskz*s2p1[ichan]/s1p1[ichan]/s1p1[ichan]-1.0);
 	// RFI mask for values which exceed SK thresholds (repacked, all values kept for one plot)
 	if (skp1[ichan]<sk_lims[0] || skp1[ichan]>sk_lims[1])
 	{
-	  for (i=k[ichan];i<buffersize_power;i+=fbin.nchan)
+	  for (i=k[ichan];i<buffersize_power;i+=nchan)
 	    buffer_power[i]=0.0; // Power set to zero in bad channels
 	  count_noscr++;
 	}
@@ -300,9 +296,9 @@ int main(int argc,char *argv[])
       // All channels except 0 and (for real time series) nchan used for frequency-scrunched RFI detection
       if (skp1_fscr<sk_lims_fscr[0] || skp1_fscr>sk_lims_fscr[1])
       {
-	for (i=0;i<buffersize_power;i+=fbin.nchan)
+	for (i=0;i<buffersize_power;i+=nchan)
 	{
-	  for (ichan=1;ichan<fbin.nchan;ichan++)
+	  for (ichan=1;ichan<nchan;ichan++)
 	    buffer_power[i+k[ichan]]=0.0;
 	}
 	count_fscr++;

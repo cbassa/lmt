@@ -38,6 +38,7 @@ reader: reader.o dada.o lib/delays.o
 dada_reader_nodelay: dada_reader_nodelay.o dada.o
 	$(CC) -o dada_reader_nodelay dada_reader_nodelay.o dada.o $(LFLAGS)
 
+# Note: mpolyco routine calls Tempo2 in order to fold data!
 integrator: integrator.o predict.c ppolyco.c mpolyco.c cldj.f djcl.f
 	$(CC) -c cldj.f
 	$(CC) -c djcl.f
