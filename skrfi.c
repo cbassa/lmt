@@ -24,19 +24,19 @@ int main(int argc,char *argv[])
   int noscr=1,norm_noscr=0,fscr=0; // e.g. 1, 0 and 0 (default values)
   // Probabilities of falsely excluding SK values from non-RFI signals in channelised and frequency-scrunched data, in terms of sigma; this is used to set SK thresholds, e.g. if sig_noscr=3.0 you will falsely exclude about 0.27% of good data through channelised zapping; if you set sig_noscr or sig_fscr low you will exclude more good data, but if you set them high you may include more RFI
   float sig_noscr=3.0,sig_fscr=3.0; // e.g. 3.0 and 3.0 (default values)
+  // Desired spectral resolution of masking
+  double sk_fsamp=0.0; // Default value of 0 makes programme assign sk_fsamp equal to fsamp (existing frequency resolution)
   // Shape of expected distribution of most SK values (e.g. 1.0 for standard exponential distribution, corresponding to power made from a complex value such as an FFT amplitude)
   float d=1.0;
 
-  int *k,count_chunk,count_noscr,count_fscr,i,j,l,iav,nchan,ichan,ndim,bytes_read,nsamp,nav2,nskz_fscr,sk_lim_status;
+  int *k,count_chunk,count_noscr,count_fscr,i,j,l,iav,nchan,ichan,ndim,bytes_read,nsamp,nav2,nskz_fscr,chan_fac,sk_lim_status;
   char *mask,infname[LIM],outfname[LIM];
   fftwf_complex *rp1,*rp2; // Filterbank data
   FILE *infile,*outfile;
-  float *pp1,*s1p1,*s2p1,*skp1,sk_lims[2],sk_lims_fscr[2],sk_bw,nchan_float,ppnosum,ppsum1_noscr,apn1,s1p1_fscr,s2p1_fscr,skp1_fscr,zap_noscr,zap_fscr,Nd;
-  double bw,tsamp;
+  float *pp1,*s1p1,*s2p1,*skp1,sk_lims[2],sk_lims_fscr[2],nchan_float,ppnosum,ppsum1_noscr,apn1,s1p1_fscr,s2p1_fscr,skp1_fscr,zap_noscr,zap_fscr,Nd;
   struct filterbank fbin,fbout;
 
   // Assign some useful values
-  sk_bw=0;
   nav2=nav*2; // nav is doubled because we are using total power made from two polarisations
   ppnosum=(float)nav2*(float)nskz;
 
@@ -53,7 +53,7 @@ int main(int argc,char *argv[])
       break;
 
     case 'b':
-      sk_bw=(float) strtof(optarg,NULL); // Desired frequency resolution (or 'b' for bandwidth) of RFI masking (relevant if -c 1 is used)
+      sk_fsamp=strtod(optarg,NULL); // Desired frequency resolution in MHz (called 'b' for bandwidth) of RFI masking (relevant if -c 1 is used)
       break;
 
     case 'm':
@@ -69,7 +69,7 @@ int main(int argc,char *argv[])
       break;
 
     case 's':
-      sig_noscr=(float) strtof(optarg,NULL);
+      sig_noscr=strtof(optarg,NULL);
       break;
 
     case 'r':
@@ -114,7 +114,7 @@ int main(int argc,char *argv[])
   strcpy(fbout.telescope,fbin.telescope);
   strcpy(fbout.instrument,fbin.instrument);
   fbout.freq=fbin.freq;
-  fbout.bw=fbin.bw; // This should be nchan*fsamp, presumably...?
+  fbout.bw=fbin.bw; // This is nchan*fsamp or -nchan*fsamp
   fbout.npol=fbin.npol; // Retain all polarisation channels
   fbout.nbit=fbin.nbit; // Number of bits per value (size of float)
   fbout.ndim=fbin.ndim; // Should be complex input
@@ -131,16 +131,14 @@ int main(int argc,char *argv[])
   if (fftwf_export_wisdom_to_filename(filename)!=0)
     printf("Wisdom exported\n");
 
-  //
-  if (sk_bw>0)
-  {
-    
-  }
-  else
-  {
-    sk_bw=fbin.fsamp;
-    nchan=fbin.nchan;
-  }
+  // Choose an integer factor by which to frequency-scrunch when masking, which is the integer nearest to the desired value according to sk_fsamp
+  chan_fac=(int)round(sk_fsamp/fbin.fsamp);
+  if (chan_fac<1)
+    chan_fac=1; // Frequency-scrunching factor must be at least 1
+  if (chan_fac>nchan)
+    chan_fac=nchan; // Frequency-scrunching factor must be at most nchan
+  nchan=fbin.nchan/chan_fac;
+  sk_fsamp=fbin.fsamp/chan_fac;
   nchan_float=(float)nchan;
 
   if (noscr==1)

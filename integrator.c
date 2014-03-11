@@ -14,8 +14,7 @@
 
 int main(int argc,char *argv[])
 {
-  int arg=0;
-  int *bintally,binno,sampcount,i,j,nel,nsamp=128,nbin=128;
+  int *bintally,arg,warncount,vals_read,binno,sampcount,i,j,nel,nsamp=128,nbin=128;
   float *bintally_float;
   // Pulsar phase as fraction of a rotation, pulsar phase as bin number, pulsar period in seconds and sampling interval in bins
   double phase_start,bin_start,period_start,tsamp_bins;
@@ -24,10 +23,9 @@ int main(int argc,char *argv[])
   // File names (these may be FIFOs or actual files)
   FILE *infile,*outfile,*parfile;
   char infname[LIM],outfname[LIM],parfname[LIM];
-  int bytes_read;
   struct filterbank fbin,fbout;
 
-  // Decode options: i=input file name, o=output file name, p=parfile name, t=number of samples per subint (default is preset above), b=number of bins in a folded profile (default is preset above)
+  // Decode options: i=input file name (required), o=output file name (required), p=parfile name (required if nbin>1), t=number of samples per subint (default is preset above), b=number of bins in a folded profile (default is preset above)
   while ((arg=getopt(argc,argv,"i:o:p:t:b:"))!=-1) {
     switch (arg) {
 
@@ -66,15 +64,6 @@ int main(int argc,char *argv[])
     exit;
   }
 
-  // Open par file
-  parfile=fopen(parfname,"r");
-
-  // Check if par file exists
-  if (parfile==NULL) {
-    fprintf(stderr,"Error opening %s\n",parfname);
-    exit;
-  }
-
   // Open output file
   outfile=fopen(outfname,"w");
   
@@ -85,7 +74,11 @@ int main(int argc,char *argv[])
   }
 
   // Read header
-  bytes_read=fread(&fbin,1,sizeof(struct filterbank),infile);
+  vals_read=fread(&fbin,1,sizeof(struct filterbank),infile);
+  if (vals_read<1) {
+    fprintf(stderr,"Error reading header\n");
+    exit;
+  }
 
   // Copy filterbank struct
   fbout.mjd_start=fbin.mjd_start;
@@ -95,7 +88,7 @@ int main(int argc,char *argv[])
   strcpy(fbout.telescope,fbin.telescope);
   strcpy(fbout.instrument,fbin.instrument);
   fbout.freq=fbin.freq;
-  fbout.bw=fbin.bw; // This should be nchan*fsamp, presumably...?
+  fbout.bw=fbin.bw; // This is nchan*fsamp or -nchan*fsamp
   fbout.npol=fbin.npol; // Retain all polarisation channels
   fbout.nbit=fbin.nbit; // Number of bits per value (size of float)
   fbout.ndim=fbin.ndim; // Should be complex input
@@ -134,6 +127,12 @@ int main(int argc,char *argv[])
   ip8=fftwf_malloc(sizeof(fftwf_complex)*nel);
 
   if (nbin>1) {
+  // Try to open par file and fail if it doesn't exist
+  parfile=fopen(parfname,"r");
+  if (parfile==NULL) {
+    fprintf(stderr,"Error opening %s\n",parfname);
+    exit;
+  }
     // Get pulsar phase and period at initial MJD of dada file using a par file, so we know which phase bins to fold samples into (converted integer part of MJD into an int because it is passed in as an unsigned int; telescope site is currently hardwired to "h" for Effelsberg; source name is passed without initial B or J; parfname is relative path to par file, including directory structure and par file name)
     predict((int)fbin.intmjd,fbin.mjd_start-(double)fbin.intmjd,fbin.source+1,parfname,"h",&phase_start,&period_start);
     // Get bin number at initial MJD of dada file
@@ -141,7 +140,7 @@ int main(int argc,char *argv[])
     // Get sampling interval in units of bins
     tsamp_bins=(double)nbin*fbin.tsamp/period_start;
   }
-  // Don't look for pulsar phase and period if nbin=1 (generally for calibrators)
+  // Don't look for pulsar phase and period if nbin=1 (calibrator or pulsar timeseries)
   else {
     bin_start=0;
     tsamp_bins=1;
@@ -149,7 +148,7 @@ int main(int argc,char *argv[])
 
   // Count of total samples processed
   sampcount=0;
-  // Read buffers up to the end
+  // A loop that keeps going until it's broken (see break statements later)
   for (;;) {
     // Reset buffers
     for (j=0;j<nbin;j++)
@@ -175,20 +174,24 @@ int main(int argc,char *argv[])
 
     // Accumulate for each subint (and fold if necessary) by reading FFT data from input file (or from another module if using FIFOs)
     for (i=0;i<nsamp;i++) {
+      // Read data
+      fread(rp1,sizeof(fftwf_complex),fbin.nchan,infile);
+      fread(rp2,sizeof(fftwf_complex),fbin.nchan,infile);
+      fread(rp3,sizeof(fftwf_complex),fbin.nchan,infile);
+      fread(rp4,sizeof(fftwf_complex),fbin.nchan,infile);
+      fread(rp5,sizeof(fftwf_complex),fbin.nchan,infile);
+      fread(rp6,sizeof(fftwf_complex),fbin.nchan,infile);
+      fread(rp7,sizeof(fftwf_complex),fbin.nchan,infile);
+      vals_read=fread(rp8,sizeof(fftwf_complex),fbin.nchan,infile);
+      // Exit subint loop when a complete spectrum cannot be read
+      if (vals_read<fbin.nchan)
+	break;
+
       // Profile bin into which each value must be folded (the first part of the calculation gives a bin number including fractional part, but the floor function rounds this down to an integer, before the modulo operator is applied to give the remainder from division by nbin; so bin 0, for example, is home to everything from 0<=bin<1, rather than, say, -0.5<=bin<0.5)
       binno=floor((double)sampcount*tsamp_bins+bin_start);
       binno%=nbin;
       // Keep track of number of values going into each bin
       bintally[binno]++;
-      // Read data
-      bytes_read=fread(rp1,sizeof(fftwf_complex),fbin.nchan,infile);
-      bytes_read=fread(rp2,sizeof(fftwf_complex),fbin.nchan,infile);
-      bytes_read=fread(rp3,sizeof(fftwf_complex),fbin.nchan,infile);
-      bytes_read=fread(rp4,sizeof(fftwf_complex),fbin.nchan,infile);
-      bytes_read=fread(rp5,sizeof(fftwf_complex),fbin.nchan,infile);
-      bytes_read=fread(rp6,sizeof(fftwf_complex),fbin.nchan,infile);
-      bytes_read=fread(rp7,sizeof(fftwf_complex),fbin.nchan,infile);
-      bytes_read=fread(rp8,sizeof(fftwf_complex),fbin.nchan,infile);
 
       // Fold subint for each channel and polarisation
       for (j=0;j<fbin.nchan;j++) {
@@ -215,12 +218,23 @@ int main(int argc,char *argv[])
       sampcount++;
     }
 
-    // Exit when buffer is empty (WARNING: this could go off the end of the file with an incomplete subint)
-    if (bytes_read==0)
+    // Exit file loop when a complete spectrum cannot be read, so a partial subint is not written out at the end (first if statement), OR allow partial subints but not empty subints to be written (second if statement)
+    // if (vals_read<nbin.nchan)
+    if (i==0)
       break;
 
-    for(i=0;i<=nbin;i++)
-      bintally_float[i]=(float)bintally[i];
+    for(i=0;i<=nbin;i++) {
+      if (bintally[i]>0) {
+	bintally_float[i]=(float)bintally[i];
+      }
+      else {
+	bintally_float[i]=1.0;
+	if (warncount==0) {
+	  warncount=1;
+	  printf("Warning: some profile bins are empty\n");
+	}
+      }
+    }
     // Within each bin, scale bins by a factor of the number of samples in that bin
     for (j=0,binno=0;j<fbin.nchan;j++) {
       for (i=0;i<nbin;i++) {
