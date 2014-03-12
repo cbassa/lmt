@@ -32,7 +32,7 @@ channelizer -i /tmp/$USER/fifo_reader -n 80 -o /tmp/$USER/fifo_channelizer &
 
 # Start matrix applier
 # input: polcal file
-map -i /tmp/$USER/fifo_channelizer -o /tmp/$USER/fifo_map -j ~/gits/lmt/polcal &
+map -i /tmp/$USER/fifo_channelizer -o /tmp/$USER/fifo_map -j ~/gits/lmt/fakepolcal &
 
 # Start dechannelizer
 # input: add -r flag for real output, remove -r flag for complex output
