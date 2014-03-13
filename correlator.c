@@ -13,6 +13,19 @@ struct filterbank initialize_visibility(struct filterbank fb1,struct filterbank 
   double fmin1,fmax1,fmin2,fmax2,fmin,fmax;
   struct filterbank fb;
 
+  // Copy other parameters
+  fb.mjd_start=fb1.mjd_start;
+  fb.intmjd=fb1.intmjd;
+  fb.intsec=fb1.intsec;
+  strcpy(fb.source,fb1.source);
+  strcpy(fb.telescope,fb1.telescope);
+  strcpy(fb.instrument,fb1.instrument);
+  fb.tsamp=fb1.tsamp;
+  fb.fsamp=fb1.fsamp;
+  fb.nbit=fb1.nbit;
+  fb.ndim=fb1.ndim;
+  fb.npol=fb1.npol;
+
   // Determine frequency overlap
   fmin1=fb1.freq-0.5*fabs(fb1.bw);
   fmax1=fb1.freq+0.5*fabs(fb1.bw);
@@ -32,7 +45,10 @@ struct filterbank initialize_visibility(struct filterbank fb1,struct filterbank 
   fb.freq=0.5*(fmax+fmin);
   fb.bw=fmax-fmin;
 
-  printf("%g %g\n",fb.freq,fb.bw);
+  // Number of channels
+  fb.nchan=(int) ceil(fb.bw/fb.fsamp);
+
+  printf("Correlator: center frequency: %g MHz, bandwidth: %g MHz, %d channels\n",fb.freq,fb.bw,fb.nchan);
 
   return fb;
 }
@@ -40,12 +56,13 @@ struct filterbank initialize_visibility(struct filterbank fb1,struct filterbank 
 int main(int argc,char *argv[])
 {
   int arg=0;
-  int i=0,j,k=0;
-  fftwf_complex *rp1,*rp2,*cp1,*cp2;
+  int i=0,i1,i2,j,k=0;
+  fftwf_complex *c1p1,*c1p2,*c2p1,*c2p2,*ccp1,*ccp2,*cdp1,*cdp2,*a1p1,*a1p2,*a2p1,*a2p2;
   FILE *infile1,*infile2,*outfile;
   char infname1[LIM],infname2[LIM],outfname[LIM];
   int bytes_read;
   struct filterbank fbin1,fbin2,fbout;
+  double freq,freq1,freq2;
 
   // Decode options
   while ((arg=getopt(argc,argv,"i:I:o:"))!=-1) {
@@ -100,14 +117,78 @@ int main(int argc,char *argv[])
   bytes_read=fread(&fbin1,1,sizeof(struct filterbank),infile1);
   bytes_read=fread(&fbin2,1,sizeof(struct filterbank),infile2);
 
-  printf("%f %f\n",fbin1.freq,fbin2.freq);
-  printf("%f %f\n",fbin1.bw,fbin2.bw);
-  printf("%d %d\n",fbin1.npol,fbin2.npol);
-  printf("%d %d\n",fbin1.nchan,fbin2.nchan);
-  printf("%f %f\n",fbin1.fsamp,fbin2.fsamp);
-  printf("%f %f\n",fbin1.tsamp,fbin2.tsamp);
-
+  // Generate output struct, compute frequency overlap, etc
   fbout=initialize_visibility(fbin1,fbin2);
+
+    // Write header struct
+  fwrite(&fbout,1,sizeof(struct filterbank),outfile);
+
+  // Allocate buffers
+  c1p1=fftwf_malloc(sizeof(fftwf_complex)*fbin1.nchan);
+  c1p2=fftwf_malloc(sizeof(fftwf_complex)*fbin1.nchan);
+  c2p1=fftwf_malloc(sizeof(fftwf_complex)*fbin2.nchan);
+  c2p2=fftwf_malloc(sizeof(fftwf_complex)*fbin2.nchan);
+  ccp1=fftwf_malloc(sizeof(fftwf_complex)*fbout.nchan);
+  ccp2=fftwf_malloc(sizeof(fftwf_complex)*fbout.nchan);
+  cdp1=fftwf_malloc(sizeof(fftwf_complex)*fbout.nchan);
+  cdp2=fftwf_malloc(sizeof(fftwf_complex)*fbout.nchan);
+  a1p1=fftwf_malloc(sizeof(fftwf_complex)*fbout.nchan);
+  a1p2=fftwf_malloc(sizeof(fftwf_complex)*fbout.nchan);
+  a2p1=fftwf_malloc(sizeof(fftwf_complex)*fbout.nchan);
+  a2p2=fftwf_malloc(sizeof(fftwf_complex)*fbout.nchan);
+
+  for (;;) {
+    // Read buffers
+    bytes_read=fread(c1p1,sizeof(fftwf_complex),fbin1.nchan,infile1);
+    bytes_read=fread(c1p2,sizeof(fftwf_complex),fbin1.nchan,infile1);
+
+    // Exit when buffer is empty
+    if (bytes_read==0)
+      break;
+
+    // Read buffers
+    bytes_read=fread(c2p1,sizeof(fftwf_complex),fbin2.nchan,infile2);
+    bytes_read=fread(c2p2,sizeof(fftwf_complex),fbin2.nchan,infile2);
+
+    // Exit when buffer is empty
+    if (bytes_read==0)
+      break;
+
+
+    for (i=0;i<fbout.nchan;i++) {
+      // Compute frequencies
+      freq=fbout.freq-0.5*fbout.bw+fbout.bw*(float) (i+0.5)/(float) fbout.nchan;
+
+      // Channel numbers
+      i1=(int) fbin1.nchan*(freq-fbin1.freq+0.5*fbin1.bw)/fbin1.bw;
+      i2=(int) fbin2.nchan*(freq-fbin2.freq+0.5*fbin2.bw)/fbin2.bw;
+      
+      //      r=r1*r2+i1*i2;
+      //      i=i1*r2-r1*i2;
+      // Auto correlation 1
+      a1p1[i][0]=c1p1[i][0]*c1p1[i][0]+c1p1[i][1]*c1p1[i][1];
+      a1p1[i][1]=c1p1[i][1]*c1p1[i][0]-c1p1[i][0]*c1p1[i][1];
+      a1p2[i][0]=c1p2[i][0]*c1p2[i][0]+c1p2[i][1]*c1p2[i][1];
+      a1p2[i][1]=c1p2[i][1]*c1p2[i][0]-c1p2[i][0]*c1p2[i][1];
+
+      // Auto correlation 2
+      a2p1[i][0]=c2p1[i][0]*c2p1[i][0]+c2p1[i][1]*c2p1[i][1];
+      a2p1[i][1]=c2p1[i][1]*c2p1[i][0]-c2p1[i][0]*c2p1[i][1];
+      a2p2[i][0]=c2p2[i][0]*c2p2[i][0]+c2p2[i][1]*c2p2[i][1];
+      a2p2[i][1]=c2p2[i][1]*c2p2[i][0]-c2p2[i][0]*c2p2[i][1];
+
+      // Cross correlation L1L2 R1R2
+      cdp1[i][0]=c1p1[i][0]*c2p1[i][0]+c1p1[i][1]*c2p1[i][1];
+      cdp1[i][1]=c1p1[i][1]*c2p1[i][0]-c1p1[i][0]*c2p1[i][1];
+      cdp2[i][0]=c1p2[i][0]*c2p2[i][0]+c1p2[i][1]*c2p2[i][1];
+      cdp2[i][1]=c1p2[i][1]*c2p2[i][0]-c1p2[i][0]*c2p2[i][1];
+      // Cross correlation L1R2 R1L2
+      ccp1[i][0]=c1p1[i][0]*c2p2[i][0]+c1p1[i][1]*c2p1[i][1];
+      ccp1[i][1]=c1p1[i][1]*c2p2[i][0]-c1p1[i][0]*c2p1[i][1];
+      ccp2[i][0]=c1p2[i][0]*c2p1[i][0]+c1p2[i][1]*c1p2[i][1];
+      ccp2[i][1]=c1p2[i][1]*c2p1[i][0]-c1p2[i][0]*c1p2[i][1];
+    }
+  }
 
   // Close
   fclose(infile1);
@@ -115,10 +196,18 @@ int main(int argc,char *argv[])
   fclose(outfile);
 
   // Free
-  fftwf_free(rp1);
-  fftwf_free(rp2);
-  fftwf_free(cp1);
-  fftwf_free(cp2);
+  fftwf_free(c1p1);
+  fftwf_free(c1p2);
+  fftwf_free(c2p1);
+  fftwf_free(c2p2);
+  fftwf_free(ccp1);
+  fftwf_free(ccp2);
+  fftwf_free(cdp1);
+  fftwf_free(cdp2);
+  fftwf_free(a1p1);
+  fftwf_free(a1p2);
+  fftwf_free(a2p1);
+  fftwf_free(a2p2);
 
   return 0;
 }
