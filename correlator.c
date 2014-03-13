@@ -8,6 +8,35 @@
 
 #define LIM 256
 
+struct filterbank initialize_visibility(struct filterbank fb1,struct filterbank fb2)
+{
+  double fmin1,fmax1,fmin2,fmax2,fmin,fmax;
+  struct filterbank fb;
+
+  // Determine frequency overlap
+  fmin1=fb1.freq-0.5*fabs(fb1.bw);
+  fmax1=fb1.freq+0.5*fabs(fb1.bw);
+  fmin2=fb2.freq-0.5*fabs(fb2.bw);
+  fmax2=fb2.freq+0.5*fabs(fb2.bw);
+
+  if (fmin1>=fmin2)
+    fmin=fmin1;
+  else
+    fmin=fmin2;
+  if (fmax1<=fmax2)
+    fmax=fmax1;
+  else
+    fmax=fmax2;
+
+  // Center frequency
+  fb.freq=0.5*(fmax+fmin);
+  fb.bw=fmax-fmin;
+
+  printf("%g %g\n",fb.freq,fb.bw);
+
+  return fb;
+}
+
 int main(int argc,char *argv[])
 {
   int arg=0;
@@ -77,6 +106,8 @@ int main(int argc,char *argv[])
   printf("%d %d\n",fbin1.nchan,fbin2.nchan);
   printf("%f %f\n",fbin1.fsamp,fbin2.fsamp);
   printf("%f %f\n",fbin1.tsamp,fbin2.tsamp);
+
+  fbout=initialize_visibility(fbin1,fbin2);
 
   // Close
   fclose(infile1);
