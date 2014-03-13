@@ -117,8 +117,8 @@ double fmjd;
   system(mvpoly);
 }
 
-void mpolyco_t2(fname,psrname,imjd,fmjd,nsite,nspan,ncoeff,par_directory)
-char  *fname,*psrname,*nsite,*par_directory;
+void mpolyco_t2(fname,psrname,imjd,fmjd,nsite,nspan,ncoeff,parfname)
+char  *fname,*psrname,*nsite,*parfname;
 int   *nspan,*ncoeff,imjd;
 double fmjd;
 {
@@ -139,7 +139,7 @@ double fmjd;
 
   /* Actually generate the polyco */
   
-  sprintf(genpoly,"tempo2 -f %s%s.par -polyco \"%f %f %d %d %d %s %f\" -tempo1", par_directory,psrname,imjd+fmjd-0.5,imjd+fmjd+0.5,*nspan,*ncoeff,maxha,nsite, freq);
+  sprintf(genpoly,"tempo2 -f %s -polyco \"%f %f %d %d %d %s %f\" -tempo1", parfname,imjd+fmjd-0.5,imjd+fmjd+0.5,*nspan,*ncoeff,maxha,nsite, freq);
   if (verb2) printf("%s %s\n",MPROG,genpoly);
   system(genpoly);
 

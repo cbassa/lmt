@@ -3,6 +3,7 @@ CFLAGS = -O3 -I/home/leap/linux/include
 
 # Linking flags
 LFLAGS = -lm -L/home/leap/linux/lib -lfftw3f
+GSLFLAGS = -lgsl -lgslcblas
 LPGFLAGS = -lcpgplot -lpgplot -lX11 -lpng
 
 
@@ -15,6 +16,9 @@ all:
 
 plotter: plotter.o
 	$(F77) -o plotter plotter.o $(LFLAGS) $(LPGFLAGS)
+
+skrfi: skrfi.o
+	$(CC) -o skrfi skrfi.o $(LFLAGS) $(GSLFLAGS)
 
 correlator: correlator.o
 	$(CC) -o correlator correlator.o $(LFLAGS)
@@ -34,6 +38,7 @@ reader: reader.o dada.o lib/delays.o
 dada_reader_nodelay: dada_reader_nodelay.o dada.o
 	$(CC) -o dada_reader_nodelay dada_reader_nodelay.o dada.o $(LFLAGS)
 
+# Note: mpolyco routine calls Tempo2 in order to fold data!
 integrator: integrator.o predict.c ppolyco.c mpolyco.c cldj.f djcl.f
 	$(CC) -c cldj.f
 	$(CC) -c djcl.f
