@@ -33,7 +33,7 @@ filwriter: filwriter.o dada.o
 	$(CC) -o filwriter filwriter.o dada.o $(LFLAGS)
 
 reader: reader.o dada.o lib/delays.o
-	$(CC) -o ~/bin/reader reader.o dada.o lib/delays.o $(LFLAGS)
+	$(CC) -o reader reader.o dada.o lib/delays.o $(LFLAGS)
 
 dada_reader_nodelay: dada_reader_nodelay.o dada.o
 	$(CC) -o dada_reader_nodelay dada_reader_nodelay.o dada.o $(LFLAGS)
