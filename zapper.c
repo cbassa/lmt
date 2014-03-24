@@ -25,7 +25,7 @@ int main(int argc,char *argv[])
   // Probabilities of falsely excluding SK values from non-RFI signals in channelised and frequency-scrunched data, in terms of sigma; this is used to set SK thresholds, e.g. if sig_noscr=3.0 you will falsely exclude about 0.27% of good data through channelised zapping; if you set sig_noscr or sig_fscr low you will exclude more good data, but if you set them high you may include more RFI
   float sig_noscr=3.0,sig_fscr=3.0; // e.g. 3.0 and 3.0 (default values)
   // Desired spectral resolution of masking
-  double sk_fsamp=0.0; // Default value of 0 makes programme assign sk_fsamp equal to fsamp (existing frequency resolution)
+  double sk_fsamp=0.0; // Default value of 0 makes programme assign sk_fsamp equal to fsamp (existing frequency resolution) unless another value is passed in
   // Shape of expected distribution of most SK values (e.g. 1.0 for standard exponential distribution, corresponding to power made from a complex value such as an FFT amplitude)
   float d=1.0;
 
@@ -40,7 +40,7 @@ int main(int argc,char *argv[])
   nav2=nav*2; // nav is doubled because we are using total power made from two polarisations
   ppnosum=(float)nav2*(float)nskz;
 
-  // Decode options: i=input file name, o=output file name, b=desired masking frequency resolution, m=
+  // Decode options: i=input file name (required), o=output file name (required), b=desired masking frequency resolution (optional; default is fbin.fsamp), m=
   while ((arg=getopt(argc,argv,"i:o:b:m:n:c:s:r:f:g:"))!=-1) {
     switch (arg) {
 
@@ -114,7 +114,7 @@ int main(int argc,char *argv[])
   strcpy(fbout.telescope,fbin.telescope);
   strcpy(fbout.instrument,fbin.instrument);
   fbout.freq=fbin.freq;
-  fbout.bw=fbin.bw; // This is nchan*fsamp or -nchan*fsamp
+  fbout.bw=fbin.bw; // This is nchan*fsamp
   fbout.npol=fbin.npol; // Retain all polarisation channels
   fbout.nbit=fbin.nbit; // Number of bits per value (size of float)
   fbout.ndim=fbin.ndim; // Should be complex input
@@ -128,8 +128,6 @@ int main(int argc,char *argv[])
   rp1=fftwf_malloc(sizeof(fftwf_complex)*fbin.nchan);
   rp2=fftwf_malloc(sizeof(fftwf_complex)*fbin.nchan);
   mask=fftwf_malloc(sizeof(char)*nchan);
-  if (fftwf_export_wisdom_to_filename(filename)!=0)
-    printf("Wisdom exported\n");
 
   // Choose an integer factor by which to frequency-scrunch when masking, which is the integer nearest to the desired value according to sk_fsamp
   chan_fac=(int)round(sk_fsamp/fbin.fsamp);
@@ -137,8 +135,8 @@ int main(int argc,char *argv[])
     chan_fac=1; // Frequency-scrunching factor must be at least 1
   if (chan_fac>nchan)
     chan_fac=nchan; // Frequency-scrunching factor must be at most nchan
-  nchan=fbin.nchan/chan_fac;
-  sk_fsamp=fbin.fsamp/chan_fac;
+  nchan=(int)ceil((double)fbin.nchan/(double)chan_fac); // Number of frequency channels for masking, including a part-channel at the end of the band if necessary
+  sk_fsamp=fbin.fsamp*(double)chan_fac; // Frequency resolution (channel bandwidth) of masking (except for any part-channel at the end of the band, which will have a smaller value)
   nchan_float=(float)nchan;
 
   if (noscr==1)
@@ -149,7 +147,7 @@ int main(int argc,char *argv[])
     skp1=(float *) malloc(sizeof(float)*nchan);
     // Generate SK thresholds using sk_thresh5 function
     sk_lim_status=sk_thresh5(nav2,nskz,sig_noscr,d,sk_lims);
-    printf("Non-scrunched thresholds: %f %f\n",sk_lims[0],sk_lims[1]);
+    printf("Zapper: non-scrunched thresholds: %f %f\n",sk_lims[0],sk_lims[1]);
   }
   else
   {
@@ -162,7 +160,7 @@ int main(int argc,char *argv[])
     nskz_fscr=nskz*(nchan-1);
     // Generate f-scrunched SK thresholds
     sk_lim_status=sk_thresh5(nav2,nskz_fscr,sig_fscr,d,sk_lims_fscr);
-    printf("Frequency-scrunched thresholds: %f %f\n",sk_lims_fscr[0],sk_lims_fscr[1]);
+    printf("Zapper: frequency-scrunched thresholds: %f %f\n",sk_lims_fscr[0],sk_lims_fscr[1]);
   }
   Nd=nav2*d;
 
@@ -319,16 +317,15 @@ int main(int argc,char *argv[])
   if (noscr==1)
   {
     zap_noscr=(float)count_noscr/(nchan_float-1.0)*100.0/(float)count_chunk;
-    printf("%.2f%% of data replaced by channel-zapping (%s%sexcluded from statistics)\n",zap_noscr,chan_str,end_str);
+    printf("Zapper: %.2f%% of data replaced by channel-zapping (%s%sexcluded from statistics)\n",zap_noscr,chan_str,end_str);
   }
   if (fscr==1)
   {
     zap_fscr=(float)count_fscr/(float)count_chunk*100.0;
-    printf("%.2f%% of data replaced by bandwidth-zapping (%s%sexcluded from statistics)\n",zap_fscr,chan_str,end_str);
+    printf("Zapper: %.2f%% of data replaced by bandwidth-zapping (%s%sexcluded from statistics)\n",zap_fscr,chan_str,end_str);
     if (noscr==1)
       printf("Data zapped by both processes are included in both percentages\n");
   }
-  printf("Output written to %s\n",outname);
 
   // Close files
   fclose(file);

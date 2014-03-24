@@ -14,10 +14,10 @@
 
 int main(int argc,char *argv[])
 {
-  int *bintally,arg,warncount,vals_read,binno,sampcount,i,j,nel,nsamp=128,nbin=128;
+  int *bintally,arg,warncount,vals_read,binno,sampcount,i,j,nel,nbin=0,nmax=1024,nsamp=128; // If a value of nbin is passed in, it gets used as long as nbin>=1; if not, default nbin>=1 gets used or default nbin<1 makes the programme calculate a value for nbin based on pulsar period, pulsar DM and tsamp; nmax is the maximum value of nbin if the programme calculates it; nsamp is number of samples folded into each subint
   float *bintally_float;
-  // Pulsar phase as fraction of a rotation, pulsar phase as bin number, pulsar period in seconds and sampling interval in bins
-  double phase_start,bin_start,period_start,tsamp_bins;
+  // Pulsar phase as fraction of a rotation, pulsar phase as bin number, pulsar period in seconds, sampling interval in bins, pulsar dispersion measure, other stuff
+  double phase_start,bin_start,period_start,tsamp_bins,dm,signf,minf,nextf,smear,lg2=0.69314718055994530941723212145818;
   // FFT in each 'polarisation' (acquired from correlator), and integrated, folded FFTs to output (complex, nchan frequency channels, subints of nsamp samples each, nbin profile bins where nbin==1 for a calibrator)
   fftwf_complex *rp1,*rp2,*rp3,*rp4,*rp5,*rp6,*rp7,*rp8,*ip1,*ip2,*ip3,*ip4,*ip5,*ip6,*ip7,*ip8;
   // File names (these may be FIFOs or actual files)
@@ -25,7 +25,7 @@ int main(int argc,char *argv[])
   char infname[LIM],outfname[LIM],parfname[LIM];
   struct filterbank fbin,fbout;
 
-  // Decode options: i=input file name (required), o=output file name (required), p=parfile name (required if nbin>1), t=number of samples per subint (default is preset above), b=number of bins in a folded profile (default is preset above)
+  // Decode options: i=input file name (required), o=output file name (required), p=parfile name (required if nbin>1), t=number of samples per subint (optional; default is preset above), b=number of bins in a folded profile (optional; default is set below according to pulsar period, pulsar DM and tsamp)
   while ((arg=getopt(argc,argv,"i:o:p:t:b:"))!=-1) {
     switch (arg) {
 
@@ -46,7 +46,7 @@ int main(int argc,char *argv[])
       break;
       
     case 'b':
-      nbin=(unsigned int) atoi(optarg);
+      nbin=(unsigned int) atoi(optarg); // If a value of nbin is passed in, it overrides any calculation of the value as long as it is greater than zero
       break;
 
     default:
@@ -88,7 +88,7 @@ int main(int argc,char *argv[])
   strcpy(fbout.telescope,fbin.telescope);
   strcpy(fbout.instrument,fbin.instrument);
   fbout.freq=fbin.freq;
-  fbout.bw=fbin.bw; // This is nchan*fsamp or -nchan*fsamp
+  fbout.bw=fbin.bw; // This is nchan*fsamp
   fbout.npol=fbin.npol; // Retain all polarisation channels
   fbout.nbit=fbin.nbit; // Number of bits per value (size of float)
   fbout.ndim=fbin.ndim; // Should be complex input
@@ -96,12 +96,49 @@ int main(int argc,char *argv[])
   fbout.fsamp=fbin.fsamp; // Channel size
   fbout.tsamp=fbin.tsamp*nsamp; // Updated sample size
 
+  // Unless no folding is required, we need to find out about the pulsar
+  if (nbin!=1) {
+    // Try to open par file and fail if it doesn't exist
+    parfile=fopen(parfname,"r");
+    if (parfile==NULL) {
+      fprintf(stderr,"Error opening %s\n",parfname);
+      exit;
+    }
+    // Get pulsar phase and period at initial MJD of dada file using a par file, so we know which phase bins to fold samples into (converted integer part of MJD into an int because it is passed in as an unsigned int; telescope site is currently hardwired to "h" for Effelsberg; source name is passed without initial B or J; parfname is relative path to par file, including directory structure and par file name)
+    predict((int)fbin.intmjd,fbin.mjd_start-(double)fbin.intmjd,fbin.source+1,parfname,"h",&phase_start,&period_start,&dm);
+    // Use period and DM to calculate a suitable number of bins if it has not been provided
+    if (nbin<1) {
+      signf=fbin.freq>=0.0?1.0:-1.0; // Just in case centre frequency is negative (which it probably shouldn't be)
+      minf=fbin.freq-signf*fabs(fbin.bw)/2.0; // Lowest frequency (closest to zero) in band, assuming band doesn't cross zero (bottom of lowest channel)
+      nextf=minf+signf*fabs(fbin.fsamp); // Next frequency away from zero after lowest (top of lowest channel)
+      smear=fbin.tsamp,4148.80642*dm*(1.0/minf/minf-1.0/nextf/nextf); // Dispersion smearing in lowest channel if dedispersion is incoherent (assumes times are in units of seconds, frequencies in MHz and DM in cm^-3 pc) WHAT IF COHERENT DEDISPERSION?
+      nbin=(int)pow(2.0,floor(log(period_start/(smear>fbin.tsamp?smear:fbin.tsamp))/lg2)); // Maximum number of bins allowed, using greater of dispersion smearing and sampling time as a lower limit on bin size and then going to the next integer power of 2 below that
+      if (nbin>ndef)
+	nbin=ndef; // Use the maximum allowed number of bins unless it is greater than the default value, in which case use that
+    }
+    // Use period and phase for folding if a number of bins greater than 1 is to be used
+    if (nbin>1) {
+      // Get bin number at initial MJD of dada file
+      bin_start=(double)nbin*phase_start;
+      // Get sampling interval in units of bins
+      tsamp_bins=(double)nbin*fbin.tsamp/period_start;
+    }
+  }
+  else {
+    printf("Integrator: no folding performed\n");
+  }
+  // Don't use pulsar phase and period if 1 bin is to be used, as folding is not needed (calibrator or pulsar timeseries)
+  if (nbin<=1) {
+    bin_start=0;
+    tsamp_bins=1;
+  }
+
   // Number of complex elements in each rp and ip array
   nel=fbout.nchan*nbin;
 
   // Print information
-  printf("Integrator: integrating %d spectra, giving %g us sampling\n",nsamp,fbout.tsamp*1e6);
-  printf("Integrator: converting to %d polarizations, %d bit\n",fbout.npol,fbout.nbit); // Currently these values don't change from input to output
+  printf("Integrator: integrating %d spectra into each subint, giving %g us sampling\n",nsamp,fbout.tsamp*1e6);
+  printf("Integrator: converting to %d polarizations, %d bits per value\n",fbout.npol,fbout.nbit); // Currently these values don't change from input to output
 
   // Write header struct
   fwrite(&fbout,1,sizeof(struct filterbank),outfile);
@@ -125,26 +162,6 @@ int main(int argc,char *argv[])
   ip6=fftwf_malloc(sizeof(fftwf_complex)*nel);
   ip7=fftwf_malloc(sizeof(fftwf_complex)*nel);
   ip8=fftwf_malloc(sizeof(fftwf_complex)*nel);
-
-  if (nbin>1) {
-  // Try to open par file and fail if it doesn't exist
-  parfile=fopen(parfname,"r");
-  if (parfile==NULL) {
-    fprintf(stderr,"Error opening %s\n",parfname);
-    exit;
-  }
-    // Get pulsar phase and period at initial MJD of dada file using a par file, so we know which phase bins to fold samples into (converted integer part of MJD into an int because it is passed in as an unsigned int; telescope site is currently hardwired to "h" for Effelsberg; source name is passed without initial B or J; parfname is relative path to par file, including directory structure and par file name)
-    predict((int)fbin.intmjd,fbin.mjd_start-(double)fbin.intmjd,fbin.source+1,parfname,"h",&phase_start,&period_start);
-    // Get bin number at initial MJD of dada file
-    bin_start=(double)nbin*phase_start;
-    // Get sampling interval in units of bins
-    tsamp_bins=(double)nbin*fbin.tsamp/period_start;
-  }
-  // Don't look for pulsar phase and period if nbin=1 (calibrator or pulsar timeseries)
-  else {
-    bin_start=0;
-    tsamp_bins=1;
-  }
 
   // Count of total samples processed
   sampcount=0;

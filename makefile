@@ -17,8 +17,8 @@ all:
 plotter: plotter.o
 	$(F77) -o plotter plotter.o $(LFLAGS) $(LPGFLAGS)
 
-skrfi: skrfi.o
-	$(CC) -o skrfi skrfi.o $(LFLAGS) $(GSLFLAGS)
+zapper: zapper.o
+	$(CC) -o zapper zapper.o $(LFLAGS) $(GSLFLAGS)
 
 correlator: correlator.o
 	$(CC) -o correlator correlator.o $(LFLAGS)

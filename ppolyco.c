@@ -11,7 +11,7 @@ int verb1,verb2,verb3,verb4;
 
 double convdtoe(char *instring);
 
-void ppolyco(char *unfname,int imjd,double frmjd,double *pobs,double *phobs)
+void ppolyco(char *unfname,int imjd,double frmjd,double *pobs,double *phobs,double *dm)
 {
   
   FILE   *pfile;
@@ -21,7 +21,7 @@ void ppolyco(char *unfname,int imjd,double frmjd,double *pobs,double *phobs)
   char   bpha[10],nsite[2],polyname[2000],psrname[12],utdate[9];
   char   tmpstr[32],tmpstr2[32],tmpstr3[32],tmpline[100],extn[8];
 
-  float  dearth,dm,rfreq,uttime,dbphase;
+  float  dearth,rfreq,uttime,dbphase;
   
   double dt,bphase,phase,pfreq,rf0,rphase,tmid,tmjd,tmjd1,tmjd2;
   double *coeff=NULL;
@@ -57,15 +57,15 @@ void ppolyco(char *unfname,int imjd,double frmjd,double *pobs,double *phobs)
       if (strlen(tmpline) > 81) 
       {
 	      strncpy(psrname,tmpline,10);
-        sscanf(tmpline+10,"%s %f %lf %f %f %f\n",utdate,&uttime,&tmid,&dm,&dearth,&dbphase);
+        sscanf(tmpline+10,"%s %f %lf %lf %f %f\n",utdate,&uttime,&tmid,dm,&dearth,&dbphase);
       }
       else
       {
 	      strncpy(psrname,tmpline,10); 
-	sscanf(tmpline,"%s %f %lf %f %f\n",utdate,&uttime,&tmid,&dm,&dearth);
+	sscanf(tmpline,"%s %f %lf %lf %f\n",utdate,&uttime,&tmid,dm,&dearth);
       }
-      if (verb2) printf("%s %d %s %s %f %lf %f %f\n",
-	     PPROG,loop,psrname,utdate,uttime,tmid,dm,dearth);
+      if (verb2) printf("%s %d %s %s %f %lf %lf %f\n",
+	     PPROG,loop,psrname,utdate,uttime,tmid,*dm,dearth);
 
 
       fflush(stdout);
