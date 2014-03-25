@@ -10,14 +10,14 @@
 // File name character limit
 #define LIM 256
 
-// This module integrates. predict routine gets period. nbins is passed in. addtovis adds in lcorr. Calibrator option?
+// This module integrates (sums) complex amplitudes into subints and folds them in phase, leaving the same number of frequency and polarisations channels as its input; it is hardwired to expect 8 polarisations; there is a choice of two if clauses below, which allows or forbids the inclusion of incomplete subints; the number of phase bins, nbin, can be passed in as an option, and the programme will attempt to calculate a suitable number if it is not; if nbin==1 then no folding is performed
 
 int main(int argc,char *argv[])
 {
-  int *bintally,arg,warncount,vals_read,binno,sampcount,i,j,nel,nbin=0,nmax=1024,nsamp=128; // If a value of nbin is passed in, it gets used as long as nbin>=1; if not, default nbin>=1 gets used or default nbin<1 makes the programme calculate a value for nbin based on pulsar period, pulsar DM and tsamp; nmax is the maximum value of nbin if the programme calculates it; nsamp is number of samples folded into each subint
+  int *bintally,arg,warncount,vals_read,binno,sampcount,i,j,nel,nbin=0,nmax=1024,nsamp=128; // If a value of nbin is passed in, it gets used as long as nbin>=1; if not, default nbin>=1 gets used or default nbin<1 makes the programme calculate a value for nbin based on pulsar period, pulsar DM, tsamp and nmax (the calculated value will be a power of 2 less than or equal to nmax, so nmax may as well be a power of 2); nsamp is number of samples folded into each subint
   float *bintally_float;
   // Pulsar phase as fraction of a rotation, pulsar phase as bin number, pulsar period in seconds, sampling interval in bins, pulsar dispersion measure, other stuff
-  double phase_start,bin_start,period_start,tsamp_bins,dm,signf,minf,nextf,smear,lg2=0.69314718055994530941723212145818;
+  double phase_start,bin_start,period_start,tsamp_bins,dm,signf,minf,nextf,tmax,lg2=0.69314718055994530941723212145818;
   // FFT in each 'polarisation' (acquired from correlator), and integrated, folded FFTs to output (complex, nchan frequency channels, subints of nsamp samples each, nbin profile bins where nbin==1 for a calibrator)
   fftwf_complex *rp1,*rp2,*rp3,*rp4,*rp5,*rp6,*rp7,*rp8,*ip1,*ip2,*ip3,*ip4,*ip5,*ip6,*ip7,*ip8;
   // File names (these may be FIFOs or actual files)
@@ -106,29 +106,31 @@ int main(int argc,char *argv[])
     }
     // Get pulsar phase and period at initial MJD of dada file using a par file, so we know which phase bins to fold samples into (converted integer part of MJD into an int because it is passed in as an unsigned int; telescope site is currently hardwired to "h" for Effelsberg; source name is passed without initial B or J; parfname is relative path to par file, including directory structure and par file name)
     predict((int)fbin.intmjd,fbin.mjd_start-(double)fbin.intmjd,fbin.source+1,parfname,"h",&phase_start,&period_start,&dm);
-    // Use period and DM to calculate a suitable number of bins if it has not been provided
-    if (nbin<1) {
+    // Use period and DM to calculate a suitable number of bins if it has not been provided (as long as nmax is a sensible number)
+    if (nbin<1 && nmax>1) {
       signf=fbin.freq>=0.0?1.0:-1.0; // Just in case centre frequency is negative (which it probably shouldn't be)
       minf=fbin.freq-signf*fabs(fbin.bw)/2.0; // Lowest frequency (closest to zero) in band, assuming band doesn't cross zero (bottom of lowest channel)
       nextf=minf+signf*fabs(fbin.fsamp); // Next frequency away from zero after lowest (top of lowest channel)
-      smear=fbin.tsamp,4148.80642*dm*(1.0/minf/minf-1.0/nextf/nextf); // Dispersion smearing in lowest channel if dedispersion is incoherent (assumes times are in units of seconds, frequencies in MHz and DM in cm^-3 pc) WHAT IF COHERENT DEDISPERSION?
-      nbin=(int)pow(2.0,floor(log(period_start/(smear>fbin.tsamp?smear:fbin.tsamp))/lg2)); // Maximum number of bins allowed, using greater of dispersion smearing and sampling time as a lower limit on bin size and then going to the next integer power of 2 below that
-      if (nbin>ndef)
-	nbin=ndef; // Use the maximum allowed number of bins unless it is greater than the default value, in which case use that
+      tmax=fabs(4148.80642*dm*(1.0/minf/minf-1.0/nextf/nextf)); // Dispersion smearing in lowest channel if dedispersion is incoherent (assumes times are in units of seconds, frequencies in MHz and DM in cm^-3 pc; the fabs function is just in case it somehows comes out negative, which it shouldn't unless band crosses zero)
+      tmax=period_start/(tmax>fbin.tsamp?tmax:fbin.tsamp); // tmax becomes the maximum number of bins using the greater of dispersion smearing and sampling time
+      nbin=(int)pow(2.0,floor(log((double)nmax<tmax?(double)nmax:tmax)/lg2)); // Maximum number of bins allowed, using the lesser of tmax and nmax and then going to the next integer power of 2 less than or equal to that
     }
     // Use period and phase for folding if a number of bins greater than 1 is to be used
-    if (nbin>1) {
+    if (nbin>1) { // Where a sensible nbin is provided, it doesn't have to be a power of 2
+      }
       // Get bin number at initial MJD of dada file
       bin_start=(double)nbin*phase_start;
       // Get sampling interval in units of bins
       tsamp_bins=(double)nbin*fbin.tsamp/period_start;
+      printf("Integrator: folding with %d phase bins\n",nbin);
+      // Warn if there is sub-sample folding, but allow it if nbin is provided
+      if (tsamp_bins>1) {
+	printf("Integrator warning: phase bin interval is less than sampling interval\n");
     }
   }
-  else {
-    printf("Integrator: no folding performed\n");
-  }
   // Don't use pulsar phase and period if 1 bin is to be used, as folding is not needed (calibrator or pulsar timeseries)
-  if (nbin<=1) {
+  if (nbin<=1) { // If, after everything, nbin still comes out as a silly number, just make it 1
+    printf("Integrator: no folding performed\n");
     bin_start=0;
     tsamp_bins=1;
   }
@@ -200,7 +202,7 @@ int main(int argc,char *argv[])
       fread(rp6,sizeof(fftwf_complex),fbin.nchan,infile);
       fread(rp7,sizeof(fftwf_complex),fbin.nchan,infile);
       vals_read=fread(rp8,sizeof(fftwf_complex),fbin.nchan,infile);
-      // Exit subint loop when a complete spectrum cannot be read
+      // Exit subint loop when a complete spectrum cannot be read (this shouldn't normally happen), so incomplete spectra are not written out
       if (vals_read<fbin.nchan)
 	break;
 
@@ -235,10 +237,18 @@ int main(int argc,char *argv[])
       sampcount++;
     }
 
-    // Exit file loop when a complete spectrum cannot be read, so a partial subint is not written out at the end (first if statement), OR allow partial subints but not empty subints to be written (second if statement)
-    // if (vals_read<nbin.nchan)
-    if (i==0)
+    // Exit file loop when a complete spectrum cannot be read, so a partial subint is not written out at the end (first if statement), OR allow partial subints but not empty subints to be written out (second if statement including else-if)
+    //    if (vals_read<nbin.nchan) {
+    //      if (i>0 && i<nsamp)
+    //	      printf("Integrator warning: discarded %d spectra in each polarisation at the end of the file, because they did not form a complete subint.\n",nsamp-i);
+    //      break;
+    //    }
+    if (i==0) {
       break;
+    }
+    else if (i<nsamp) {
+      printf("Integrator warning: integrated %d spectra in each polarisation at the end of the file, even though they did not form a complete subint\n",nsamp-i);
+    }
 
     for(i=0;i<=nbin;i++) {
       if (bintally[i]>0) {
@@ -248,7 +258,7 @@ int main(int argc,char *argv[])
 	bintally_float[i]=1.0;
 	if (warncount==0) {
 	  warncount=1;
-	  printf("Warning: some profile bins are empty\n");
+	  printf("Integrator warning: some profile bins are empty\n");
 	}
       }
     }
