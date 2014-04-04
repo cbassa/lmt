@@ -17,8 +17,8 @@ all:
 plotter: plotter.o
 	$(F77) -o plotter plotter.o $(LFLAGS) $(LPGFLAGS)
 
-zapper: zapper.o
-	$(CC) -o zapper zapper.o $(LFLAGS) $(GSLFLAGS)
+masker: masker.o
+	$(CC) -o masker masker.o $(LFLAGS) $(GSLFLAGS)
 
 correlator: correlator.o
 	$(CC) -o correlator correlator.o $(LFLAGS)

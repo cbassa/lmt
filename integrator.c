@@ -14,7 +14,8 @@
 
 int main(int argc,char *argv[])
 {
-  int *bintally,arg,warncount,vals_read,binno,sampcount,i,j,nel,nbin=0,nmax=1024,nsamp=128; // If a value of nbin is passed in, it gets used as long as nbin>=1; if not, default nbin>=1 gets used or default nbin<1 makes the programme calculate a value for nbin based on pulsar period, pulsar DM, tsamp and nmax (the calculated value will be a power of 2 less than or equal to nmax, so nmax may as well be a power of 2); nsamp is number of samples folded into each subint
+  unsigned int nbin=0,nmax=1024,nsamp=128; // If a value of nbin is passed in, it gets used as long as nbin>=1; if not, default nbin>=1 gets used or default nbin<1 makes the programme calculate a value for nbin based on pulsar period, pulsar DM, tsamp and nmax (the calculated value will be a power of 2 less than or equal to nmax, so nmax may as well be a power of 2); nsamp is number of samples folded into each subint
+  int *bintally,arg,warncount,vals_read,binno,sampcount,i,j,nel;
   float *bintally_float;
   // Pulsar phase as fraction of a rotation, pulsar phase as bin number, pulsar period in seconds, sampling interval in bins, pulsar dispersion measure, other stuff
   double phase_start,bin_start,period_start,tsamp_bins,dm,signf,minf,nextf,tmax,lg2=0.69314718055994530941723212145818;
@@ -25,7 +26,7 @@ int main(int argc,char *argv[])
   char infname[LIM],outfname[LIM],parfname[LIM];
   struct filterbank fbin,fbout;
 
-  // Decode options: i=input file name (required), o=output file name (required), p=parfile name (required if nbin>1), t=number of samples per subint (optional; default is preset above), b=number of bins in a folded profile (optional; default is set below according to pulsar period, pulsar DM and tsamp)
+  // Decode options: i=input file name (required), o=output file name (required), p=parfile name (required if nbin!=1), t=number of samples per subint (optional; default is preset above), b=number of bins in a folded profile (optional; default is set below according to pulsar period, pulsar DM and tsamp)
   while ((arg=getopt(argc,argv,"i:o:p:t:b:"))!=-1) {
     switch (arg) {
 
@@ -202,8 +203,10 @@ int main(int argc,char *argv[])
       fread(rp6,sizeof(fftwf_complex),fbin.nchan,infile);
       fread(rp7,sizeof(fftwf_complex),fbin.nchan,infile);
       vals_read=fread(rp8,sizeof(fftwf_complex),fbin.nchan,infile);
-      // Exit subint loop when a complete spectrum cannot be read (this shouldn't normally happen), so incomplete spectra are not written out
-      if (vals_read<fbin.nchan)
+      // Exit subint loop when a complete spectrum cannot be read (this shouldn't normally happen until no spectrum at all can be read), so incomplete spectra are not written out and we can decide what to do with incomplete subints later (see next break statement)
+      if (vals_read<fbin.nchan) {
+	if (vals_read>0)
+	  printf("Integrator warning: read incomplete spectrum at end of file, with only %d values in each polarisation instead of %d; these values will be discarded and not integrated.\n",vals_read,fbin.nchan);
 	break;
 
       // Profile bin into which each value must be folded (the first part of the calculation gives a bin number including fractional part, but the floor function rounds this down to an integer, before the modulo operator is applied to give the remainder from division by nbin; so bin 0, for example, is home to everything from 0<=bin<1, rather than, say, -0.5<=bin<0.5)
@@ -238,8 +241,8 @@ int main(int argc,char *argv[])
     }
 
     // Exit file loop when a complete spectrum cannot be read, so a partial subint is not written out at the end (first if statement), OR allow partial subints but not empty subints to be written out (second if statement including else-if)
-    //    if (vals_read<nbin.nchan) {
-    //      if (i>0 && i<nsamp)
+    //    if (vals_read<fbin.nchan) {
+    //      if (i>0)
     //	      printf("Integrator warning: discarded %d spectra in each polarisation at the end of the file, because they did not form a complete subint.\n",nsamp-i);
     //      break;
     //    }
@@ -247,7 +250,7 @@ int main(int argc,char *argv[])
       break;
     }
     else if (i<nsamp) {
-      printf("Integrator warning: integrated %d spectra in each polarisation at the end of the file, even though they did not form a complete subint\n",nsamp-i);
+      printf("Integrator warning: integrated %d spectra in each polarisation at the end of the file, even though they did not form a complete subint\n",i);
     }
 
     for(i=0;i<=nbin;i++) {
