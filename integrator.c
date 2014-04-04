@@ -61,7 +61,7 @@ int main(int argc,char *argv[])
   
   // Check if input file exists
   if (infile==NULL) {
-    fprintf(stderr,"Error opening %s\n",infname);
+    fprintf(stderr,"Error opening %s.\n",infname);
     exit;
   }
 
@@ -70,14 +70,14 @@ int main(int argc,char *argv[])
   
   // Check if output file exists
   if (outfile==NULL) {
-    fprintf(stderr,"Error opening %s\n",outfname);
+    fprintf(stderr,"Error opening %s.\n",outfname);
     exit;
   }
 
   // Read header
   vals_read=fread(&fbin,1,sizeof(struct filterbank),infile);
   if (vals_read<1) {
-    fprintf(stderr,"Error reading header\n");
+    fprintf(stderr,"Error reading header.\n");
     exit;
   }
 
@@ -102,7 +102,7 @@ int main(int argc,char *argv[])
     // Try to open par file and fail if it doesn't exist
     parfile=fopen(parfname,"r");
     if (parfile==NULL) {
-      fprintf(stderr,"Error opening %s\n",parfname);
+      fprintf(stderr,"Error opening %s.\n",parfname);
       exit;
     }
     // Get pulsar phase and period at initial MJD of dada file using a par file, so we know which phase bins to fold samples into (converted integer part of MJD into an int because it is passed in as an unsigned int; telescope site is currently hardwired to "h" for Effelsberg; source name is passed without initial B or J; parfname is relative path to par file, including directory structure and par file name)
@@ -123,15 +123,15 @@ int main(int argc,char *argv[])
       bin_start=(double)nbin*phase_start;
       // Get sampling interval in units of bins
       tsamp_bins=(double)nbin*fbin.tsamp/period_start;
-      printf("Integrator: folding with %d phase bins\n",nbin);
+      printf("Integrator: folding with %d phase bins.\n",nbin);
       // Warn if there is sub-sample folding, but allow it if nbin is provided
       if (tsamp_bins>1) {
-	printf("Integrator warning: phase bin interval is less than sampling interval\n");
+	printf("Integrator warning: phase bin interval is less than sampling interval.\n");
     }
   }
   // Don't use pulsar phase and period if 1 bin is to be used, as folding is not needed (calibrator or pulsar timeseries)
   if (nbin<=1) { // If, after everything, nbin still comes out as a silly number, just make it 1
-    printf("Integrator: no folding performed\n");
+    printf("Integrator: no folding performed.\n");
     bin_start=0;
     tsamp_bins=1;
   }
@@ -140,8 +140,8 @@ int main(int argc,char *argv[])
   nel=fbout.nchan*nbin;
 
   // Print information
-  printf("Integrator: integrating %d spectra into each subint, giving %g us sampling\n",nsamp,fbout.tsamp*1e6);
-  printf("Integrator: converting to %d polarizations, %d bits per value\n",fbout.npol,fbout.nbit); // Currently these values don't change from input to output
+  printf("Integrator: integrating %d spectra into each subint, giving %g us sampling.\n",nsamp,fbout.tsamp*1e6);
+  printf("Integrator: converting to %d polarizations, %d bits per value.\n",fbout.npol,fbout.nbit); // Currently these values don't change from input to output
 
   // Write header struct
   fwrite(&fbout,1,sizeof(struct filterbank),outfile);
@@ -208,6 +208,7 @@ int main(int argc,char *argv[])
 	if (vals_read>0)
 	  printf("Integrator warning: read incomplete spectrum at end of file, with only %d values in each polarisation instead of %d; these values will be discarded and not integrated.\n",vals_read,fbin.nchan);
 	break;
+      }
 
       // Profile bin into which each value must be folded (the first part of the calculation gives a bin number including fractional part, but the floor function rounds this down to an integer, before the modulo operator is applied to give the remainder from division by nbin; so bin 0, for example, is home to everything from 0<=bin<1, rather than, say, -0.5<=bin<0.5)
       binno=floor((double)sampcount*tsamp_bins+bin_start);
@@ -250,7 +251,7 @@ int main(int argc,char *argv[])
       break;
     }
     else if (i<nsamp) {
-      printf("Integrator warning: integrated %d spectra in each polarisation at the end of the file, even though they did not form a complete subint\n",i);
+      printf("Integrator warning: integrated %d spectra in each polarisation at the end of the file, even though they did not form a complete subint.\n",i);
     }
 
     for(i=0;i<=nbin;i++) {
@@ -261,7 +262,7 @@ int main(int argc,char *argv[])
 	bintally_float[i]=1.0;
 	if (warncount==0) {
 	  warncount=1;
-	  printf("Integrator warning: some profile bins are empty\n");
+	  printf("Integrator warning: some profile bins are empty.\n");
 	}
       }
     }

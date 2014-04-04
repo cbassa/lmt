@@ -90,21 +90,21 @@ int main(int argc,char *argv[])
   infile=fopen(infname,"r");
   // Check if input file exists
   if (infile==NULL) {
-    fprintf(stderr,"Error opening %s\n",infname);
+    fprintf(stderr,"Error opening %s.\n",infname);
     exit;
   }
   // Open output mask file
   maskfile=fopen(maskfname,"w");
   // Check if mask file exists
   if (maskfile==NULL) {
-    fprintf(stderr,"Error opening %s\n",maskfname);
+    fprintf(stderr,"Error opening %s.\n",maskfname);
     exit;
   }
 
   // Read header
   vals_read=fread(&fbin,1,sizeof(struct filterbank),infile);
   if (vals_read<1) {
-    fprintf(stderr,"Error reading header\n");
+    fprintf(stderr,"Error reading header.\n");
     exit;
   }
 
@@ -165,7 +165,7 @@ int main(int argc,char *argv[])
     nskz_noscr=nskz*chanfac; // Number of values used in one set to determine non-scrunched spectral kurtosis estimator
     // Generate SK thresholds using sk_thresh6 function
     sk_lim_status=sk_thresh6(nskz_noscr,sig_noscr,d,sk_lims);
-    printf("Masker: non-scrunched thresholds are %f and %f\n",sk_lims[0],sk_lims[1]);
+    printf("Masker: non-scrunched thresholds are %f and %f.\n",sk_lims[0],sk_lims[1]);
   }
   else
   {
@@ -178,7 +178,7 @@ int main(int argc,char *argv[])
     nskz_fscr=nskz*(fbin.nchan-1); // Number of values used in one set to determine frequency-scrunched spectral kurtosis estimator (channel 0 excluded)
     // Generate f-scrunched SK thresholds
     sk_lim_status=sk_thresh6(nskz_fscr,sig_fscr,d,sk_lims_fscr);
-    printf("Masker: frequency-scrunched thresholds are %f and %f\n",sk_lims_fscr[0],sk_lims_fscr[1]);
+    printf("Masker: frequency-scrunched thresholds are %f and %f.\n",sk_lims_fscr[0],sk_lims_fscr[1]);
   }
 
   // A loop that keeps going until it's broken (see break statements later)
@@ -334,14 +334,14 @@ int main(int argc,char *argv[])
   if (noscr==1)
   {
     zap_noscr=(float)count_noscr/(nchan_float-1.0)*100.0/(float)count_chunk;
-    printf("Masker: %.2f%% of data replaced by channel-zapping (%s%sexcluded from statistics)\n",zap_noscr,chan_str,end_str);
+    printf("Masker: %.2f%% of data replaced by channel-zapping (%s%sexcluded from statistics).\n",zap_noscr,chan_str,end_str);
   }
   if (fscr==1)
   {
     zap_fscr=(float)count_fscr/(float)count_chunk*100.0;
-    printf("Masker: %.2f%% of data replaced by bandwidth-zapping (%s%sexcluded from statistics)\n",zap_fscr,chan_str,end_str);
+    printf("Masker: %.2f%% of data replaced by bandwidth-zapping (%s%sexcluded from statistics).\n",zap_fscr,chan_str,end_str);
     if (noscr==1)
-      printf("Masker: data zapped by both processes are included in both percentages\n");
+      printf("Masker: data zapped by both processes are included in both percentages.\n");
   }
 
   // Close files
