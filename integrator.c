@@ -61,7 +61,7 @@ int main(int argc,char *argv[])
   
   // Check if input file exists
   if (infile==NULL) {
-    fprintf(stderr,"Error opening %s.\n",infname);
+    fprintf(stderr,"Integrator error: could not open %s.\n",infname);
     exit;
   }
 
@@ -70,14 +70,14 @@ int main(int argc,char *argv[])
   
   // Check if output file exists
   if (outfile==NULL) {
-    fprintf(stderr,"Error opening %s.\n",outfname);
+    fprintf(stderr,"Integrator error: could not open %s.\n",outfname);
     exit;
   }
 
   // Read header
   vals_read=fread(&fbin,1,sizeof(struct filterbank),infile);
   if (vals_read<1) {
-    fprintf(stderr,"Error reading header.\n");
+    fprintf(stderr,"Integrator error: could not read header.\n");
     exit;
   }
 

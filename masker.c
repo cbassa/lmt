@@ -12,13 +12,13 @@
 // File name character limit
 #define LIM 256
 
-// This module uses spectral kurtosis to create a mask of good (1) and bad (0) values corresponding to the channelised data; the output mask file has a filterbank header, followed by char values made from ints (1 or 0); the module is hardwired to expect 2 polarisations; it analyses total power and therefore masks both polarisations (or neither) at each time and frequency; the temporal and spectral masking resolutions are given by nskz*nav and nchan (you can average nav spectra together if you want), but this does not affect the resolutions of the data; it does not mask any data in channel 0 (or channel nbin, if present after the FFT of a real time series)
+// This module uses spectral kurtosis to create a mask of good (1) and bad (0) values corresponding to the channelised data; the output mask file has a filterbank header, followed by char values made from ints (1 or 0); the module is hardwired to expect 2 polarisations; it analyses total power and therefore masks both polarisations (or neither) at each time and frequency; the temporal and spectral masking resolutions are given by nskz and nchan, but this does not affect the resolutions of the data; it does not mask any data in channel 0 (or channel nbin, if present after the FFT of a real time series)
 
 int sk_thresh6(int M_int, float s_float, float d_float, float sk_lims_float[]);
 
 int main(int argc,char *argv[])
 {
-  // nskz is called M in the Nita & Gary papers (number of blocks of nav FFTs of each polarisation used to compute each SK value)
+  // nskz is called M in the Nita & Gary papers (number of FFTs of each polarisation used to compute each SK value)
   unsigned int nskz=2048; // e.g. 2048 (default value)
   // Options: 1/0 for per-channel detection or not; 1/0 to normalise summed power in each channel and each polarisation by total bandwidth power in that polarisation, or not (only applies to noscr option; using it may make you miss RFI, but is necessary if you have a very strong signal which has smooth time variation across nskz*nchan time samples and which you want to let through); 1/0 for frequency-scrunched detection (across full bandwidth) or not
   unsigned int noscr=1,norm_noscr=0,fscr=0; // e.g. 1, 0 and 0 (default values)
@@ -29,11 +29,11 @@ int main(int argc,char *argv[])
   // Shape of expected distribution of most SK values (e.g. 1.0 for standard exponential distribution, corresponding to power made from a complex value such as an FFT amplitude)
   float d=1.0;
 
-  int arg,count_chunk,count_noscr,count_fscr,i,nchan,ichan,ndim,vals_read,nsamp,nskz_noscr,nskz_fscr,ifac,chanfac,nchanfac,sk_lim_status;
+  int arg,i,nchan,ichan,ndim,vals_read,nsamp,nskz_noscr,nskz_fscr,ifac,chanfac,nchanfac,sk_lim_status;
   char *mask,infname[LIM],maskfname[LIM];
   fftwf_complex *rp1,*rp2; // Filterbank data
   FILE *infile,*maskfile;
-  float *pp1,*s1p1,*s2p1,*skp1,sk_lims[2],sk_lims_fscr[2],nchan_float,ppnosum,ppsum1_noscr,apn1,s1p1_fscr,s2p1_fscr,skp1_fscr,zap_noscr,zap_fscr;
+  float *pp1,*s1p1,*s2p1,*skp1,sk_lims[2],sk_lims_fscr[2],nchan_float,nchan_in_float,ppnosum,ppsum1_noscr,apn1,s1p1_fscr,s2p1_fscr,skp1_fscr,zap_noscr,zap_fscr,count_chunk,total_count;
   struct filterbank fbin,fbout;
 
   // Decode options: i=input file name (required), o=output mask file name (required), d=power distribution shape parameter (optional; default is preset above), b=desired masking frequency resolution (optional; default is fbin.fsamp), m=number of power values used to make each RFI estimator value (optional; default is preset above); n=non-scrunched RFI detection or not (optional; default is preset above); s=tolerance of non-scrunched RFI detecion in units of sigma (optional; default is preset above); r=normalise non-scrunched power values by total bandwidth power or not (optional; default is preset above); f=frequency-scrunched RFI detection or not (optional; default is preset above); g=tolerance of frequency-scrunched detection (optional; default is preset above)
@@ -90,21 +90,21 @@ int main(int argc,char *argv[])
   infile=fopen(infname,"r");
   // Check if input file exists
   if (infile==NULL) {
-    fprintf(stderr,"Error opening %s.\n",infname);
+    fprintf(stderr,"Masker error: could not open %s.\n",infname);
     exit;
   }
   // Open output mask file
   maskfile=fopen(maskfname,"w");
   // Check if mask file exists
   if (maskfile==NULL) {
-    fprintf(stderr,"Error opening %s.\n",maskfname);
+    fprintf(stderr,"Masker error: could not open %s.\n",maskfname);
     exit;
   }
 
   // Read header
   vals_read=fread(&fbin,1,sizeof(struct filterbank),infile);
   if (vals_read<1) {
-    fprintf(stderr,"Error reading header.\n");
+    fprintf(stderr,"Masker error: could not read header.\n");
     exit;
   }
 
@@ -140,24 +140,28 @@ int main(int argc,char *argv[])
   pp1=malloc(sizeof(float)*fbin.nchan);
   rp1=fftwf_malloc(sizeof(fftwf_complex)*fbin.nchan);
   rp2=fftwf_malloc(sizeof(fftwf_complex)*fbin.nchan);
-
-  // Choose an integer factor by which to frequency-scrunch when masking, which is the integer nearest to the desired value according to sk_fsamp
-  chanfac=(int)round(fabs(sk_fsamp/fbin.fsamp));
-  if (chanfac<1)
-    chanfac=1; // Frequency-scrunching factor must be at least 1
-  if (chanfac>fbin.nchan)
-    chanfac=fbin.nchan; // Frequency-scrunching factor must be at most nchan
-  nchan=(int)floor((double)(fbin.nchan-1)/(double)chanfac); // Number of frequency channels for masking, excluding any part-channel at the end of the band (the -1 accounts for the fact that channel 0 will not be zapped)
-  nchanfac=nchan*chanfac; // Number of frequency channels in data that can be masked
-  sk_fsamp=fabs(fbin.fsamp)*(double)chanfac; // Frequency resolution (channel bandwidth) of masking (fabs makes sure it's positive)
-  printf("Masker: masking suspected RFI with a time resolution of %.2g s and a frequency resolution of %.2g MHz (this will not change the time and frequency resolutions of the original data); frequency channel 0 will always be masked as we do not whether it came from a real or a complex timeseries and therefore cannot check it for RFI.\n",sk_tsamp,sk_fsamp);
-  if (nchanfac<fbin.nchan-1) // The exclusion of channel 0 is hardwired into this part of the code too
-    printf("Masker warning: Last frequency channels %d to %d will always be masked as they span less than the frequency resolution of masking and therefore cannot be checked for RFI.\n",nchanfac+1,fbin.nchan-1);
-  nchan_float=(float)nchan;
+  // Set some values
+  nchan_in_float=(float)fbin.nchan;
+  count_chunk=0.0; // Counters use floats in the unlikely event that they go past the upper integer limit
+  total_count=0.0;
 
   if (noscr==1)
   {
-    count_noscr=0;
+    // Choose an integer factor by which to frequency-scrunch when masking, which is the integer nearest to the desired value according to sk_fsamp
+    chanfac=(int)floor(fabs(sk_fsamp/fbin.fsamp)+0.5);
+    if (chanfac<1)
+      chanfac=1; // Frequency-scrunching factor must be at least 1
+    if (chanfac>fbin.nchan)
+      chanfac=fbin.nchan; // Frequency-scrunching factor must be at most nchan
+    nchan=(int)floor((double)(fbin.nchan-1)/(double)chanfac); // Number of frequency channels for masking, excluding any part-channel at the end of the band (the -1 accounts for the fact that channel 0 will not be zapped)
+    nchanfac=nchan*chanfac; // Number of frequency channels in data that can be masked
+    sk_fsamp=fabs(fbin.fsamp)*(double)chanfac; // Frequency resolution (channel bandwidth) of masking (fabs makes sure it's positive)
+    printf("Masker: masking suspected RFI with a time resolution of %.2g s and a frequency resolution of %.2g MHz (this will not change the time and frequency resolutions of the original data); frequency channel 0 will always be masked as we do not whether it came from a real or a complex timeseries and therefore cannot check it for RFI.\n",sk_tsamp,sk_fsamp);
+    if (nchanfac<fbin.nchan-1) // The exclusion of channel 0 is hardwired into this part of the code too
+      printf("Masker warning: Last frequency channels %d to %d will always be masked as they span less than the frequency resolution of masking and therefore cannot be checked for RFI (except as part of the full bandwidth, if this option has been selected).\n",nchanfac+1,fbin.nchan-1);
+    nchan_float=(float)nchan;
+
+    zap_noscr=0.0;
     s1p1=(float *) malloc(sizeof(float)*nchan);
     s2p1=(float *) malloc(sizeof(float)*nchan);
     skp1=(float *) malloc(sizeof(float)*nchan);
@@ -173,7 +177,8 @@ int main(int argc,char *argv[])
   }
   if (fscr==1)
   {
-    count_fscr=0;
+    printf("Masker: masking suspected RFI with a time resolution of %.2g s across the full bandwidth, excluding channel 0 (this will not change the time and frequency resolutions of the original data); frequency channel 0 will always be masked as we do not whether it came from a real or a complex timeseries and therefore cannot check it for RFI.\n",sk_tsamp);
+    zap_fscr=0.0;
     // Note that frequency-scrunched values come from the statistics of the set of power values in each channel (except channel 0) and at each time, rather than from a set of power values summed over the whole band at each time (hence the factor of nchan-1 below); the same is done if the requested frequency resolution of masking requires channels to be scrunched together - this is different to how the two polarisation channels are treated, where the power for each value is made from both polarisations summed together, rather than using a set containing values from each polarisation separately; the approach with frequency is to avoid losing sensitivity by averaging too many values together, while the approach with power is to diluting polarised RFI and making it more difficult to detect
     nskz_fscr=nskz*(fbin.nchan-1); // Number of values used in one set to determine frequency-scrunched spectral kurtosis estimator (channel 0 excluded)
     // Generate f-scrunched SK thresholds
@@ -184,12 +189,11 @@ int main(int argc,char *argv[])
   // A loop that keeps going until it's broken (see break statements later)
   for (;;)
   {
-    count_chunk=0;
     // Initialise mask array
     for (ichan=0;ichan<fbin.nchan;ichan++)
-      mask[ichan]=(char)0;
+      mask[ichan]=(char)1;
 
-    // Initialise other arrays as long as some zapping is being done
+    // Initialise other arrays as long as some masking is being done
     if (noscr==1 || fscr==1)
     {
       for (ichan=0;ichan<fbin.nchan;ichan++)
@@ -233,17 +237,10 @@ int main(int argc,char *argv[])
 	// Normalise or don't normalise power in each channel of summed spectrum by total bandwidth power
 	if (norm_noscr==1)
 	{
-	  if (fbin.nchan!=1)
-	  {
-	    ppsum1_noscr=0.0;
-	    // Note that channel 0 is excluded from total bandwidth power
-	    for (ichan=1;ichan<fbin.nchan;ichan++)
-	      ppsum1_noscr+=pp1[ichan];
-	  }
-	  else
-	  {
-	    ppsum1_noscr=pp1[0];
-	  }
+	  ppsum1_noscr=0.0;
+	  // Note that channel 0 is excluded from total bandwidth power
+	  for (ichan=1;ichan<fbin.nchan;ichan++)
+	    ppsum1_noscr+=pp1[ichan];
 	}
         else
         {
@@ -256,7 +253,7 @@ int main(int argc,char *argv[])
 	  // Channel 0 not used here as it is not generally comparable between real and complex time series, and we don't know which we have
 	  for (ifac=1+ichan*chanfac;ifac<=(1+ichan)*chanfac;ifac++) // All complete masking channels used, but not a last part-channel
 	  {
-	    apn1=pp1[ifac]/ppsum1_noscr;
+	    apn1=pp1[ifac]/ppsum1_noscr/chanfac;
 	    s1p1[ichan]+=apn1;
 	    s2p1[ichan]+=apn1*apn1;
 	  }
@@ -275,74 +272,91 @@ int main(int argc,char *argv[])
 
     if (vals_read<fbin.nchan)
     {
-      // As long as some masking is being done, mask out incomplete subints that could not be checked for RFI
-      if (i>0 && (noscr==1 || fscr==1))
+      // Deal with last incomplete subint if necessary
+      if (i>0)
       {
+	// As long as some masking is being done, mask out incomplete subint that could not be checked for RFI
+	if (noscr==1 || fscr==1)
+	{
+	  for (ichan=0;ichan<fbin.nchan;ichan++)
+	    mask[ichan]=(char)0;
+	}
+	else
+	{
+	  total_count+=(float)i/(float)nskz;
+	}
 	printf("Masker warning: masking %d spectra in each polarisation at end of file, because they did not form a complete subint to check for RFI.\n",i);
-	for (ichan=0;ichan<fbin.nchan;ichan++)
-	  mask[ichan]=(char)0;
 	// Write out last bit of mask
 	for (ifac=0;ifac<i;ifac++) // ifac stands in for i here, because we are using the value of i from a previous loop
 	  fwrite(mask,sizeof(char),fbin.nchan,maskfile);
+	count_chunk+=(float)i/(float)nskz;
       }
       break;
     }
 
     if (noscr==1 || fscr==1)
     {
-      if (noscr==1)
+      if (fbin.nchan>1)
       {
-	// Compute SK sums and make RFI masks (repacked, all values kept for one plot)
-	for (ichan=0;ichan<nchan;ichan++)
+	if (noscr==1)
         {
-	  skp1[ichan]=(nskz_noscr*d+1.0)/(nskz_noscr-1.0)*(nskz_noscr*s2p1[ichan]/s1p1[ichan]/s1p1[ichan]-1.0);
-	  // RFI mask for values which exceed SK thresholds (repacked, all values kept for one plot)
-	  if (skp1[ichan]<sk_lims[0] || skp1[ichan]>sk_lims[1])
-	  {
-	    for (ifac=1+ichan*chanfac;ifac<=(1+ichan)*chanfac;ifac++)
-	      mask[ifac]=(char)0; // Mask set to zero in bad channels
-	    count_noscr++;
+	  // Compute SK sums and make RFI masks
+	  for (ichan=0;ichan<nchan;ichan++)
+          {
+	    skp1[ichan]=(nskz_noscr*d+1.0)/(nskz_noscr-1.0)*(nskz_noscr*s2p1[ichan]/s1p1[ichan]/s1p1[ichan]-1.0);
+	    // RFI mask for values which exceed SK thresholds (repacked, all values kept for one plot)
+	    if (skp1[ichan]<sk_lims[0] || skp1[ichan]>sk_lims[1])
+	    {
+	      for (ifac=1+ichan*chanfac;ifac<=(1+ichan)*chanfac;ifac++)
+		mask[ifac]=(char)0; // Mask set to zero in bad channels
+	      zap_noscr+=1.0/nchan_float;
+	    }
 	  }
-	}
-      }
-      if (fscr==1)
-      {
-	skp1_fscr=(nskz_fscr*d+1.0)/(nskz_fscr-1.0)*(nskz_fscr*s2p1_fscr/s1p1_fscr/s1p1_fscr-1.0);
-	// All channels except 0 used for frequency-scrunched RFI detection
-	if (skp1_fscr<sk_lims_fscr[0] || skp1_fscr>sk_lims_fscr[1])
-        {
-	  for (ichan=1;ichan<fbin.nchan;ichan++)
-	  {
+	  // If channel-masking is selected, mask out out channels at the top of the band which cannot be checked for RFI; NOTE: the mask could be changed to some value other than 1 or 0 to indicate that RFI detection has not been attempted on these channels
+	  for (ichan=nchanfac+1;ichan<nchan;ichan++)
 	    mask[ichan]=(char)0;
-	    count_fscr++;
+	}
+	if (fscr==1)
+        {
+	  skp1_fscr=(nskz_fscr*d+1.0)/(nskz_fscr-1.0)*(nskz_fscr*s2p1_fscr/s1p1_fscr/s1p1_fscr-1.0);
+	  // All channels except 0 used for frequency-scrunched RFI detection
+	  if (skp1_fscr<sk_lims_fscr[0] || skp1_fscr>sk_lims_fscr[1])
+          {
+	    for (ichan=1;ichan<fbin.nchan;ichan++)
+	    {
+	      mask[ichan]=(char)0;
+	      zap_fscr+=1.0;
+	    }
 	  }
 	}
       }
-      // As long as some masking is being done, zap out channels that could not be checked for RFI (channel 0 and any masking part-channel at the top of the band); NOTE: the mask could be changed to some value other than 1 or 0 to indicate that RFI detection has not been attempted on these channels
+      // As long as some masking is being done, mask out channel 0
       mask[0]=(char)0;
-      for (ichan=nchanfac+1;ichan<nchan;ichan++)
-	mask[ichan]=(char)0;
     }
 
-    // Write chunk of mask file
+    // Write chunk of mask file and check total masked fraction
     for (i=0;i<nskz;i++)
       fwrite(mask,sizeof(char),fbin.nchan,maskfile); // NOTE: this currently has one value per total power sample (i.e. each value covers four amplitude values, as they are complex and in 2 polarisations)
-    count_chunk++;
+    for (ichan=0;ichan<fbin.nchan;ichan++)
+      total_count+=(float)mask[ichan]/nchan_in_float;
+    count_chunk+=1.0;
   }
 
   // Report zapped percentage
   if (noscr==1)
   {
-    zap_noscr=(float)count_noscr/(nchan_float-1.0)*100.0/(float)count_chunk;
-    printf("Masker: %.2f%% of data replaced by channel-zapping (%s%sexcluded from statistics).\n",zap_noscr,chan_str,end_str);
+    zap_noscr/=count_chunk*100.0;
+    printf("Masker: checked %d frequency channels for RFI and masked %.2f%% of these data.\n",nchanfac,zap_noscr);
   }
   if (fscr==1)
   {
-    zap_fscr=(float)count_fscr/(float)count_chunk*100.0;
-    printf("Masker: %.2f%% of data replaced by bandwidth-zapping (%s%sexcluded from statistics).\n",zap_fscr,chan_str,end_str);
+    zap_fscr/=count_chunk*100.0;
+    printf("Masker: Checked full bandwidth for RFI and masked %.2f%% of these data.\n",zap_fscr);
     if (noscr==1)
       printf("Masker: data zapped by both processes are included in both percentages.\n");
   }
+  total_count=100.0*(1.0-total_count/count_chunk);
+  printf("Masker: %.2f%% of data masked in total.\n",total_count);
 
   // Close files
   fclose(infile);
