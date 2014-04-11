@@ -134,7 +134,7 @@ int main(int argc,char *argv[])
   ppnosum=(float)nskz; // For scaling later on
 
   // Change d to reflect the number of polarisations (fbin.npol should be 2 as other parts of this module are hardwired to fbin.npol==2 anyway)
-  d*=(double)fbin.npol;
+  d*=(double)fbin.npol; // In Nita & Gary, this would be Nd with N==fbin.npol
   // Allocate memory
   mask=malloc(sizeof(char)*fbin.nchan);
   pp1=malloc(sizeof(float)*fbin.nchan);
