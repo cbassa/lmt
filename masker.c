@@ -313,7 +313,7 @@ int main(int argc,char *argv[])
 	      zap_noscr+=1.0/nchan_float;
 	    }
 	  }
-	  // If channel-masking is selected, mask out out channels at the top of the band which cannot be checked for RFI; NOTE: the mask could be changed to some value other than 1 or 0 to indicate that RFI detection has not been attempted on these channels
+	  // If channel-masking is selected, mask out channels at the top of the band which cannot be checked for RFI; NOTE: the mask could be changed to some value other than 1 or 0 to indicate that RFI detection has not been attempted on these channels
 	  for (ichan=nchanfac+1;ichan<nchan;ichan++)
 	    mask[ichan]=(char)0;
 	}
@@ -393,7 +393,7 @@ int sk_thresh6(int M_int, float s_float, float d_float, float sk_lims_float[])
   {
     /* Initial hard-wired variables, which you might want to change but which seem to work well */
     size_t subdiv_lim = 100; /* Maximum number of intervals into which integrations will be subdivided (this can be quite low for a smoothly varying function such as the probability density function we are integrating, but may need to be larger for large M) */
-    double Ptol = 0.00001; /* Permitted absolute error in cumulative probability values calculated by integration (this can be small for our smoothly varying function) */
+    double Ptol = 0.0001; /* Permitted absolute error in cumulative probability values calculated by integration (this can be small for our smoothly varying function) */
     int max_its = 100; /* Maximum number of numerical integrations allowed when trying to find an initial or best threshold value */
     
     /* Other variables declared */

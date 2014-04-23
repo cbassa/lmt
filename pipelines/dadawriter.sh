@@ -15,27 +15,23 @@ fi
 if [ ! -e /tmp/$USER/fifo_digitizer ]; then
     mkfifo /tmp/$USER/fifo_digitizer
 fi
-if [ ! -e /tmp/$USER/fifo_integrator ]; then
-    mkfifo /tmp/$USER/fifo_integrator
-fi
 
 # Start reader
 # input: input file, block size
-dada_reader_nodelay -i input.dada -o /tmp/$USER/fifo_reader -b 64000 &
+../dada_reader_nodelay -i /home/sanidas/testcorr/3C454_EB.dada -o /tmp/$USER/fifo_reader -b 64000 &
 
 # Start channelizer
 # input: number of channels
-channelizer -i /tmp/$USER/fifo_reader -n 80 -o /tmp/$USER/fifo_channelizer &
+../channelizer -i /tmp/$USER/fifo_reader -n 80 -o /tmp/$USER/fifo_channelizer &
 
 # Start dechannelizer
 # input: add -r flag for real output, remove -r flag for complex output
-dechannelizer -i /tmp/$USER/fifo_channelizer -o /tmp/$USER/fifo_dechannelizer -r &
+../dechannelizer -i /tmp/$USER/fifo_channelizer -o /tmp/$USER/fifo_dechannelizer &
 
 # Start digitizer
 # input: -s scale -O offset, default are scale=1, offset=0
-digitizer -i /tmp/$USER/fifo_dechannelizer -o /tmp/$USER/fifo_digitizer &
+../digitizer -i /tmp/$USER/fifo_dechannelizer -o /tmp/$USER/fifo_digitizer &
 
 # Start writer
 # input: output file
-dada_writer -i /tmp/$USER/fifo_digitizer -o out.dada
-
+../dada_writer -i /tmp/$USER/fifo_digitizer -o out.dada -s ../Dada_header.txt

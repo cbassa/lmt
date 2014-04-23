@@ -65,6 +65,8 @@ int main(int argc,char *argv[])
 
   // Read header
   ts=read_dada_header(infile);
+  // Set only parameter in ts that doesn't come from the header: the number of samples to put in the buffer and write out at once (this is reset by the dechannelizer, but setting it here means you can write out without channelizing and dechannelizing if you want to)
+  ts.nsamp=blocksize;
 
   // Compute sample delay
   samples_to_skip=(uint64_t) (delay*ts.samples_per_second);
