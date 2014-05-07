@@ -106,6 +106,7 @@ int main(int argc,char *argv[])
       exit;
     }
     // Get pulsar phase and period at initial MJD of dada file using a par file, so we know which phase bins to fold samples into (converted integer part of MJD into an int because it is passed in as an unsigned int; telescope site is currently hardwired to "h" for Effelsberg; source name is passed without initial B or J; parfname is relative path to par file, including directory structure and par file name)
+    printf("%f\n",fbin.mjd_start);
     predict((int)fbin.intmjd,fbin.mjd_start-(double)fbin.intmjd,fbin.source+1,parfname,"h",&phase_start,&period_start,&dm);
     // Use period and DM to calculate a suitable number of bins if it has not been provided (as long as nmax is a sensible number)
     if (nbin<1 && nmax>1) {
