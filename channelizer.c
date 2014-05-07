@@ -78,7 +78,7 @@ int main(int argc,char *argv[])
   fb.freq=ts.freq;
   fb.bw=ts.bw;
   fb.npol=ts.npol;
-  fb.nbit=-32; // Floats
+  fb.nbit=32; // Floats
   fb.ndim=2; // Complex output
   fb.nchan=nchan; // Number of channels
   fb.fsamp=(double) fb.bw/(double) fb.nchan;

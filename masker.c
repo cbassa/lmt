@@ -225,7 +225,7 @@ int main(int argc,char *argv[])
       if (vals_read<fbin.nchan)
       {
 	if (vals_read>0)
-	  printf("Masker warning: read incomplete spectrum at end of file, with only %d values in each polarisation instead of %d; mask will not contain values for this spectrum and will therefore have fewer values than the input data file.\n",vals_read,fbin.nchan);
+	  printf("Masker warning: read incomplete spectrum at end of file, with only %d values in each polarisation instead of %u; mask will not contain values for this spectrum and will therefore have fewer values than the input data file.\n",vals_read,fbin.nchan);
 	break;
       }
 

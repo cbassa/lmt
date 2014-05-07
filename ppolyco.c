@@ -32,7 +32,6 @@ void ppolyco(char *unfname,int imjd,double frmjd,double *pobs,double *phobs,doub
   strncpy(polyname,unfname,1024);
   strcpy(extn,".polyco");
   strncat(polyname,extn,7);
-
   if (access(polyname, R_OK) == 0)
     {
       pfile = fopen(polyname,"r");

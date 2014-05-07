@@ -27,7 +27,7 @@ double fmjd;
   maxha = 12;
   freq = 1408.0;
  
-  //  printf("mp:psrname = %s\n",psrname);
+  if (verb2) printf("mp:psrname = %s\n",psrname);
   /* First we need to make the tz.in file */
   
   strcpy(tzin,psrname);
@@ -54,6 +54,7 @@ double fmjd;
   sprintf(genpoly,"tempo -z %s < %s >> %s",tzin,date,fname);
   //  sprintf(genpoly,"tempo -z %s < %s >> /tmp/%s",tzin,date,fname);
   if (verb2) printf("%s %s\n",MPROG,genpoly);
+  printf("Generating polyco with Tempo.\n");
   system(genpoly);
 
   /* Move the polyco to a unique name */
@@ -81,7 +82,7 @@ double fmjd;
   maxha = 12;
   freq = 1408.0;
  
-  printf("mp:psrname = %s\n",psrname);
+  if (verb2) printf("mp:psrname = %s\n",psrname);
   /* First we need to make the tz.in file */
   
   strcpy(tzin,psrname);
@@ -108,6 +109,7 @@ double fmjd;
   sprintf(genpoly,"tempo -f %s -z %s < %s >> %s",parfname, tzin,date,fname);
   //  sprintf(genpoly,"tempo -f %s -z %s < %s >> /tmp/%s",parfname, tzin,date,fname);
   if (verb2) printf("%s %s\n",MPROG,genpoly);
+  printf("Generating polyco with Tempo.\n");
   system(genpoly);
 
   /* Move the polyco to a unique name */
@@ -135,12 +137,12 @@ double fmjd;
   maxha = 12;
   freq = 1408.0;
  
-  printf("mp:psrname = %s\n",psrname);
+  if (verb2) printf("mp:psrname = %s\n",psrname);
 
   /* Actually generate the polyco */
-  
   sprintf(genpoly,"tempo2 -f %s -polyco \"%f %f %d %d %d %s %f\" -tempo1", parfname,imjd+fmjd-0.5,imjd+fmjd+0.5,*nspan,*ncoeff,maxha,nsite, freq);
   if (verb2) printf("%s %s\n",MPROG,genpoly);
+  printf("Generating polyco with Tempo2.\n");
   system(genpoly);
 
   /* Move the polyco to a unique name */
@@ -174,12 +176,13 @@ double fmjd;
   maxha = 12;
   freq = 1408.0;
  
-  printf("mp:psrname = %s\n",psrname);
+  if (verb2) printf("mp:psrname = %s\n",psrname);
 
   /* Actually generate the polyco */
   
   sprintf(genpoly,"polyco -f %s %f %f %d %d %d %s %f", parfname,imjd+fmjd-0.5,imjd+fmjd+0.5,*nspan,*ncoeff,maxha,nsite, freq);
   if (verb2) printf("%s %s\n",MPROG,genpoly);
+  printf("Generating polyco with programme 'Polyco'.\n");
   system(genpoly);
 
   /* Move the polyco to a unique name */

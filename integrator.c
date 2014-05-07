@@ -106,7 +106,7 @@ int main(int argc,char *argv[])
       exit;
     }
     // Get pulsar phase and period at initial MJD of dada file using a par file, so we know which phase bins to fold samples into (converted integer part of MJD into an int because it is passed in as an unsigned int; telescope site is currently hardwired to "h" for Effelsberg; source name is passed without initial B or J; parfname is relative path to par file, including directory structure and par file name)
-    printf("%f\n",fbin.mjd_start);
+    printf("Integrator: folding source %s using par file %s.\n",fbin.source,parfname);
     predict((int)fbin.intmjd,fbin.mjd_start-(double)fbin.intmjd,fbin.source+1,parfname,"h",&phase_start,&period_start,&dm);
     // Use period and DM to calculate a suitable number of bins if it has not been provided (as long as nmax is a sensible number)
     if (nbin<1 && nmax>1) {
@@ -124,7 +124,7 @@ int main(int argc,char *argv[])
       bin_start=(double)nbin*phase_start;
       // Get sampling interval in units of bins
       tsamp_bins=(double)nbin*fbin.tsamp/period_start;
-      printf("Integrator: folding with %d phase bins.\n",nbin);
+      printf("Integrator: folding with %u phase bins.\n",nbin);
       // Warn if there is sub-sample folding, but allow it if nbin is provided
       if (tsamp_bins>1) {
 	printf("Integrator warning: phase bin interval is less than sampling interval.\n");
@@ -141,8 +141,8 @@ int main(int argc,char *argv[])
   nel=fbout.nchan*nbin;
 
   // Print information
-  printf("Integrator: integrating %d spectra into each subint, giving %g us sampling.\n",nsamp,fbout.tsamp*1e6);
-  printf("Integrator: converting to %d polarizations, %d bits per value.\n",fbout.npol,fbout.nbit); // Currently these values don't change from input to output
+  printf("Integrator: integrating %u spectra into each subint, giving %.3g s sampling.\n",nsamp,fbout.tsamp);
+  printf("Integrator: converting to %u polarizations, %u bits per value.\n",fbout.npol,fbout.nbit); // Currently these values don't change from input to output
 
   // Write header struct
   fwrite(&fbout,1,sizeof(struct filterbank),outfile);
@@ -207,7 +207,7 @@ int main(int argc,char *argv[])
       // Exit subint loop when a complete spectrum cannot be read (this shouldn't normally happen until no spectrum at all can be read), so incomplete spectra are not written out and we can decide what to do with incomplete subints later (see next break statement)
       if (vals_read<fbin.nchan) {
 	if (vals_read>0)
-	  printf("Integrator warning: read incomplete spectrum at end of file, with only %d values in each polarisation instead of %d; these values will be discarded and not integrated.\n",vals_read,fbin.nchan);
+	  printf("Integrator warning: read incomplete spectrum at end of file, with only %d values in each polarisation instead of %u; these values will be discarded and not integrated.\n",vals_read,fbin.nchan);
 	break;
       }
 
