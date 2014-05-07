@@ -70,8 +70,8 @@ int main(int argc,char *argv[])
   // Copy timeseries struct information to filterbank struct
   offset=(double) ts.obs_offset/(double) ts.bytes_per_second;
   fb.mjd_start=ts.mjd_start+offset/86400.0;
-  //  fb.intmjd=ts.intmjd;
-  //  fb.intsec=ts.intsec;
+  fb.intmjd=(int) fb.mjd_start; // Integer part of MJD at start of dada file (not at start of observation)
+  fb.intsec=(int) ((fb.mjd_start-(double) fb.intmjd)*86400); // Integer number of seconds (rounded down) between start of current MJD and start of dada file (not start of observation)
   strcpy(fb.source,ts.source);
   strcpy(fb.telescope,ts.telescope);
   strcpy(fb.instrument,ts.instrument);
