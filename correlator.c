@@ -188,6 +188,15 @@ int main(int argc,char *argv[])
       ccp2[i][0]=c1p2[i][0]*c2p1[i][0]+c1p2[i][1]*c1p2[i][1];
       ccp2[i][1]=c1p2[i][1]*c2p1[i][0]-c1p2[i][0]*c1p2[i][1];
     }
+
+    fwrite(a1p1,sizeof(fftw_complex),fbout.nchan,outfile);
+    fwrite(a1p2,sizeof(fftw_complex),fbout.nchan,outfile);
+    fwrite(a2p1,sizeof(fftw_complex),fbout.nchan,outfile);
+    fwrite(a2p2,sizeof(fftw_complex),fbout.nchan,outfile);
+    fwrite(cdp1,sizeof(fftw_complex),fbout.nchan,outfile);
+    fwrite(cdp2,sizeof(fftw_complex),fbout.nchan,outfile);
+    fwrite(ccp1,sizeof(fftw_complex),fbout.nchan,outfile);
+    fwrite(ccp1,sizeof(fftw_complex),fbout.nchan,outfile);
   }
 
   // Close

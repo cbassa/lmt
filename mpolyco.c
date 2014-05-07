@@ -63,8 +63,8 @@ double fmjd;
   system(mvpoly);
 }
 
-void mpolyco_t1(fname,psrname,imjd,fmjd,nsite,nspan,ncoeff,par_directory)
-char  *fname,*psrname,*nsite,*par_directory;
+void mpolyco_t1(fname,psrname,imjd,fmjd,nsite,nspan,ncoeff,parfname)
+char  *fname,*psrname,*nsite,*parfname;
 int   *nspan,*ncoeff,imjd;
 double fmjd;
 {
@@ -105,8 +105,8 @@ double fmjd;
   fclose(datefile);
 
   /* Actually generate the polyco */
-  sprintf(genpoly,"tempo -f %s%s.par -z %s < %s >> %s",par_directory, psrname, tzin,date,fname);
-  //  sprintf(genpoly,"tempo -f %s%s.par -z %s < %s >> /tmp/%s",par_directory, psrname, tzin,date,fname);
+  sprintf(genpoly,"tempo -f %s -z %s < %s >> %s",parfname, tzin,date,fname);
+  //  sprintf(genpoly,"tempo -f %s -z %s < %s >> /tmp/%s",parfname, tzin,date,fname);
   if (verb2) printf("%s %s\n",MPROG,genpoly);
   system(genpoly);
 
@@ -156,8 +156,8 @@ double fmjd;
 
 
 
-void mpolyco_t0(fname,psrname,imjd,fmjd,nsite,nspan,ncoeff,par_directory)
-char  *fname,*psrname,*nsite,*par_directory;
+void mpolyco_t0(fname,psrname,imjd,fmjd,nsite,nspan,ncoeff,parfname)
+char  *fname,*psrname,*nsite,*parfname;
 int   *nspan,*ncoeff,imjd;
 double fmjd;
 {
@@ -178,7 +178,7 @@ double fmjd;
 
   /* Actually generate the polyco */
   
-  sprintf(genpoly,"polyco -f %s%s.par %f %f %d %d %d %s %f", par_directory,psrname,imjd+fmjd-0.5,imjd+fmjd+0.5,*nspan,*ncoeff,maxha,nsite, freq);
+  sprintf(genpoly,"polyco -f %s %f %f %d %d %d %s %f", parfname,imjd+fmjd-0.5,imjd+fmjd+0.5,*nspan,*ncoeff,maxha,nsite, freq);
   if (verb2) printf("%s %s\n",MPROG,genpoly);
   system(genpoly);
 

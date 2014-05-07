@@ -3,26 +3,22 @@
 # Make fifos
 # The command below will make user specific fifos
 mkdir -p /tmp/$USER
-if [ ! -e /tmp/$USER/fifo_reader ]; then
-    mkfifo /tmp/$USER/fifo_reader
-fi
-if [ ! -e /tmp/$USER/fifo_channelizer ]; then
-    mkfifo /tmp/$USER/fifo_channelizer
-fi
-if [ ! -e /tmp/$USER/fifo_dechannelizer ]; then
-    mkfifo /tmp/$USER/fifo_dechannelizer
-fi
-if [ ! -e /tmp/$USER/fifo_digitizer ]; then
-    mkfifo /tmp/$USER/fifo_digitizer
-fi
+rm -f /tmp/$USER/fifo_reader
+mkfifo /tmp/$USER/fifo_reader
+rm -f /tmp/$USER/fifo_channelizer
+mkfifo /tmp/$USER/fifo_channelizer
+rm -f /tmp/$USER/fifo_dechannelizer
+mkfifo /tmp/$USER/fifo_dechannelizer
+rm -f /tmp/$USER/fifo_digitizer
+mkfifo /tmp/$USER/fifo_digitizer
 
 # Start reader
 # input: input file, block size
-../dada_reader_nodelay -i /home/sanidas/testcorr/3C454_EB.dada -o /tmp/$USER/fifo_reader -b 64000 &
+../dada_reader_nodelay -i /home/sanidas/testcorr/3C454_WB.dada -o /tmp/$USER/fifo_reader -b 64000 &
 
 # Start channelizer
 # input: number of channels
-../channelizer -i /tmp/$USER/fifo_reader -n 80 -o /tmp/$USER/fifo_channelizer &
+../channelizer -i /tmp/$USER/fifo_reader -n 100 -o /tmp/$USER/fifo_channelizer &
 
 # Start dechannelizer
 # input: add -r flag for real output, remove -r flag for complex output

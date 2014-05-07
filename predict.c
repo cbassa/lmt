@@ -70,6 +70,7 @@ void predict(int intmjd, double fracmjd, char *psr, char *parfname, char site[2]
   sec  = floor(60 * ((60 * ((24 * fracmjd) - hour)) - min));
   // Use tempo2 to make a polyco based on the par file given by parfname
   mpolyco_t2(unfname,psrname,intmjd,fracmjd,site,&nspan,&ncoeff,parfname);
+  printf("%d %f\n",intmjd,fracmjd);
   // Calculate pulsar period and phase from the polyco
   ppolyco(unfname,intmjd,fracmjd,&midpobs,&refph,dm);
   mjd = intmjd + fracmjd;
