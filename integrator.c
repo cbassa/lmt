@@ -14,7 +14,8 @@
 
 int main(int argc,char *argv[])
 {
-  unsigned int nbin=0,nmax=1024,nsamp=128; // If a value of nbin is passed in, it gets used as long as nbin>=1; if not, default nbin>=1 gets used or default nbin<1 makes the programme calculate a value for nbin based on pulsar period, pulsar DM, tsamp and nmax (the calculated value will be a power of 2 less than or equal to nmax, so nmax may as well be a power of 2); nsamp is number of samples folded into each subint
+  unsigned int nbin=0,nmax=1024,nsamp=128,tver=1; // If a value of nbin is passed in, it gets used as long as nbin>=1; if not, default nbin>=1 gets used or default nbin<1 makes the programme calculate a value for nbin based on pulsar period, pulsar DM, tsamp and nmax (the calculated value will be a power of 2 less than or equal to nmax, so nmax may as well be a power of 2); nsamp is number of samples folded into each subint; tver is Tempo version (1 or 2)
+  char site[2]="h"; // Default site is h for Effelsberg
   int *bintally,arg,warncount,vals_read,binno,sampcount,i,j,nel;
   float *bintally_float;
   // Pulsar phase as fraction of a rotation, pulsar phase as bin number, pulsar period in seconds, sampling interval in bins, pulsar dispersion measure, other stuff
@@ -26,8 +27,8 @@ int main(int argc,char *argv[])
   char infname[LIM],outfname[LIM],parfname[LIM];
   struct filterbank fbin,fbout;
 
-  // Decode options: i=input file name (required), o=output file name (required), p=parfile name (required if nbin!=1), t=number of samples per subint (optional; default is preset above), b=number of bins in a folded profile (optional; default is set below according to pulsar period, pulsar DM and tsamp)
-  while ((arg=getopt(argc,argv,"i:o:p:t:b:"))!=-1) {
+  // Decode options: i=input file name (required), o=output file name (required), p=parfile name (required if nbin!=1), t=number of samples per subint (optional; default is preset above), b=number of bins in a folded profile (optional; default is set below according to pulsar period, pulsar DM and tsamp), s=site (optional; code character for reference telescope; default is preset above); f=Tempo version for folding (optional; 2 for Tempo2, any other value for Tempo; default is preset above)
+  while ((arg=getopt(argc,argv,"i:o:p:t:b:s:f:"))!=-1) {
     switch (arg) {
 
     case 'i':
@@ -48,6 +49,14 @@ int main(int argc,char *argv[])
       
     case 'b':
       nbin=(unsigned int) atoi(optarg); // If a value of nbin is passed in, it overrides any calculation of the value as long as it is greater than zero
+      break;
+
+    case 's':
+      strcpy(site,optarg);
+      break;
+
+    case 'f':
+      tver=(unsigned int) atoi(optarg);
       break;
 
     default:
@@ -105,9 +114,11 @@ int main(int argc,char *argv[])
       fprintf(stderr,"Error opening %s.\n",parfname);
       exit;
     }
-    // Get pulsar phase and period at initial MJD of dada file using a par file, so we know which phase bins to fold samples into (converted integer part of MJD into an int because it is passed in as an unsigned int; telescope site is currently hardwired to "h" for Effelsberg; source name is passed without initial B or J; parfname is relative path to par file, including directory structure and par file name)
-    printf("Integrator: folding source %s using par file %s.\n",fbin.source,parfname);
-    predict((int)fbin.intmjd,fbin.mjd_start-(double)fbin.intmjd,fbin.source+1,parfname,"h",&phase_start,&period_start,&dm);
+    // Get pulsar phase and period at initial MJD of dada file using a par file, so we know which phase bins to fold samples into (converted integer part of MJD into an int because it is passed in as an unsigned int; telescope site is normally 'h' for Effelsberg; source name is passed without initial B or J; parfname is relative path to par file, including directory structure and par file name)
+    printf("Integrator: folding source %s using par file %s...\n",fbin.source,parfname);
+    if (tver!=1 && tver!=2)
+      tver=1; // Just in case a value other than 1 or 2 is given
+    predict((int)fbin.intmjd,fbin.mjd_start-(double)fbin.intmjd,fbin.source+1,parfname,site,&phase_start,&period_start,&dm,tver);
     // Use period and DM to calculate a suitable number of bins if it has not been provided (as long as nmax is a sensible number)
     if (nbin<1 && nmax>1) {
       signf=fbin.freq>=0.0?1.0:-1.0; // Just in case centre frequency is negative (which it probably shouldn't be)
@@ -142,7 +153,7 @@ int main(int argc,char *argv[])
 
   // Print information
   printf("Integrator: integrating %u spectra into each subint, giving %.3g s sampling.\n",nsamp,fbout.tsamp);
-  printf("Integrator: converting to %u polarizations, %u bits per value.\n",fbout.npol,fbout.nbit); // Currently these values don't change from input to output
+  printf("Integrator: maintaining %u polarizations, %u bits per value.\n",fbout.npol,fbout.nbit); // Currently these values don't change from input to output
 
   // Write header struct
   fwrite(&fbout,1,sizeof(struct filterbank),outfile);

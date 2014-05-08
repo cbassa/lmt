@@ -27,6 +27,9 @@ double fmjd;
   maxha = 12;
   freq = 1408.0;
  
+  // Check that the format of psrname is ok for Tempo
+  fussy(psrname);
+
   if (verb2) printf("mp:psrname = %s\n",psrname);
   /* First we need to make the tz.in file */
   
@@ -54,12 +57,12 @@ double fmjd;
   sprintf(genpoly,"tempo -z %s < %s >> %s",tzin,date,fname);
   //  sprintf(genpoly,"tempo -z %s < %s >> /tmp/%s",tzin,date,fname);
   if (verb2) printf("%s %s\n",MPROG,genpoly);
-  printf("Generating polyco with Tempo.\n");
+  printf("Generating polyco with Tempo, using default par file.\n");
   system(genpoly);
 
   /* Move the polyco to a unique name */
 
-  sprintf(mvpoly,"mv polyco.dat %s.polyco\n",fname);
+  sprintf(mvpoly,"mv polyco.dat %s.polyco; rm %s; rm %s; rm %s; rm tz.tmp; rm tempo.lis\n",fname,fname,tzin,date);
   if (verb2) printf("%s %s\n",MPROG,mvpoly);
   system(mvpoly);
 }
@@ -81,14 +84,16 @@ double fmjd;
   *nspan = 120;
   maxha = 12;
   freq = 1408.0;
- 
+
+  // Check that the format of psrname is ok for Tempo
+  fussy(psrname);
+
   if (verb2) printf("mp:psrname = %s\n",psrname);
   /* First we need to make the tz.in file */
   
   strcpy(tzin,psrname);
   strcat(tzin,".tz");
   tzfile = fopen(tzin,"w");
-
   fprintf(tzfile,"    %s   12 180  15 1408      (Defaults for nsite, maxha, nspan, ncoeff, freq)\n",nsite);
   fprintf(tzfile,"  Name     Nspan  Ncoeffs Maxha Freq (For each PSR you can override the defaults)\n");
   fprintf(tzfile,"--------------------------------------------------------------------------------\n");
@@ -114,7 +119,7 @@ double fmjd;
 
   /* Move the polyco to a unique name */
 
-  sprintf(mvpoly,"mv polyco.dat %s.polyco\n",fname);
+  sprintf(mvpoly,"mv polyco.dat %s.polyco; rm %s; rm %s; rm %s; rm tz.tmp; rm tempo.lis\n",fname,fname,tzin,date);
   if (verb2) printf("%s %s\n",MPROG,mvpoly);
   system(mvpoly);
 }
@@ -147,7 +152,7 @@ double fmjd;
 
   /* Move the polyco to a unique name */
 
-  sprintf(mvpoly,"mv polyco_new.dat %s.polyco",fname);
+  sprintf(mvpoly,"mv polyco_new.dat %s.polyco; rm newpolyco.dat; rm polyco.tim\n",fname);
   /*  if(!verb2) strcat(mvpoly, " > /dev/null"); */
   if (verb2) printf("%s %s\n",MPROG,mvpoly);
   system(mvpoly);
@@ -193,7 +198,34 @@ double fmjd;
   system(mvpoly);
 }
 
+void fussy(psrname)
+char *psrname;
+{
+  // This function changes the pulsar name used by Tempo if necessary
+  int chint,ct=0;
+  char psrname_old[20],*ch=psrname;
 
+  // Keep a record of the pulsar name before any changes
+  strcpy(psrname_old,psrname);
+
+  while (*ch!='\0' && ct<4)
+  {
+    chint=(int)*ch;
+    // Replace first, second or fourth characters with 0 if they are not numbers, and replace third character with 0 if it is not a number, plus sign, minus sign or comma
+    if ((chint<48 || chint>57) && (ct!=2 || chint<43 || chint>45))
+      *ch='0';
+    ch++;
+    ct++;
+  }
+
+  // Contingency if an empty string is given
+  if (ct==0)
+    *psrname='0';
+
+  // State if name changed
+  if (strcmp(psrname,psrname_old)!=0)
+    printf("Tempo may not accept %s as a pulsar name, so it has been temporarily changed to %s (this only affects the files being created for Tempo to use).\n",psrname_old,psrname);
+}
 
 
 

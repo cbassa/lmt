@@ -24,7 +24,7 @@ struct filterbank initialize_visibility(struct filterbank fb1,struct filterbank 
   fb.fsamp=fb1.fsamp;
   fb.nbit=fb1.nbit;
   fb.ndim=fb1.ndim;
-  fb.npol=fb1.npol;
+  fb.npol=8; // Formerly fb.npol=fb1.npol
 
   // Determine frequency overlap
   fmin1=fb1.freq-0.5*fabs(fb1.bw);

@@ -18,7 +18,7 @@ void ppolyco(char *unfname,int imjd,double frmjd,double *pobs,double *phobs,doub
 
   int    i,loop,ncoeff,nspan;
 
-  char   bpha[10],nsite[2],polyname[2000],psrname[12],utdate[9];
+  char   bpha[10],nsite[2],delpoly[2000],polyname[2000],psrname[12],utdate[9];
   char   tmpstr[32],tmpstr2[32],tmpstr3[32],tmpline[100],extn[8];
 
   float  dearth,rfreq,uttime,dbphase;
@@ -130,6 +130,8 @@ void ppolyco(char *unfname,int imjd,double frmjd,double *pobs,double *phobs,doub
   *pobs = 1.0/pfreq;
   *phobs = phase;
   fclose(pfile);
+  sprintf(delpoly,"rm %s",polyname);
+  system(delpoly);
   if (coeff) 
     free(coeff); 
 }
